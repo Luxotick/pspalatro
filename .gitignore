@@ -1,0 +1,6 @@
+EBOOT.PBP
+PARAM.SFO
+pspalatro.elf
+Balatro.exe
+*.o
+.vscode/
