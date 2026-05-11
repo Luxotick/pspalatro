@@ -1876,7 +1876,7 @@ void game_draw_pause_menu()
 
     // Draw the dialog box
     float box_w = 200.0f;
-    float box_h = 100.0f;
+    float box_h = 130.0f;
     float box_x = (480.0f - box_w) / 2.0f;
     float box_y = (272.0f - box_h) / 2.0f;
 
@@ -1893,9 +1893,11 @@ void game_draw_pause_menu()
     // Menu options
     uint32_t color_continue = (g_game_state.highlighted_item == 0) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
     uint32_t color_savequit = (g_game_state.highlighted_item == 1) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
+    uint32_t color_load = (g_game_state.highlighted_item == 2) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
 
     graphics_draw_text_center(font_small, "Continue", 240.0f, box_y + 40.0f, 1.0f, color_continue);
     graphics_draw_text_center(font_small, "Save", 240.0f, box_y + 70.0f, 1.0f, color_savequit);
+    graphics_draw_text_center(font_small, "Load", 240.0f, box_y + 100.0f, 1.0f, color_load);
 }
 
 void game_draw()

@@ -1022,9 +1022,16 @@ void game_input_update_pause_menu(bool no_input)
 {
     if (no_input) return;
 
-    if (input_was_button_pressed(INPUT_BUTTON_DOWN) || input_was_button_pressed(INPUT_BUTTON_UP))
+    if (input_was_button_pressed(INPUT_BUTTON_DOWN))
     {
-        g_game_state.highlighted_item = !g_game_state.highlighted_item;
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 3;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_UP))
+    {
+        if (g_game_state.highlighted_item == 0)
+            g_game_state.highlighted_item = 2;
+        else
+            g_game_state.highlighted_item--;
     }
 
     if (input_was_button_pressed(INPUT_BUTTON_CROSS))
@@ -1033,11 +1040,16 @@ void game_input_update_pause_menu(bool no_input)
         {
             game_go_back_to_previous_stage();
         }
-        else // Save (Trigger Native IO Save)
+        else if (g_game_state.highlighted_item == 1) // Save
         {
             extern void run_save_utility();
             run_save_utility();
-            // Menüyü kapat ve oyuna dön. Yoksa menude takili kalir
+            game_go_back_to_previous_stage();
+        }
+        else if (g_game_state.highlighted_item == 2) // Load
+        {
+            extern void run_load_utility();
+            run_load_utility();
             game_go_back_to_previous_stage();
         }
     }
