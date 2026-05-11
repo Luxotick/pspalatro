@@ -74,7 +74,7 @@ void process_dialog_loop()
 void run_save_utility()
 {
     configure_dialog();
-    dialog.mode = PSP_UTILITY_SAVEDATA_AUTOSAVE;
+    dialog.mode = PSP_UTILITY_SAVEDATA_SAVE;
     
     void *base_addr = &g_game_state.all_cards.cards[0];
     memcpy(dialog.dataBuf, &base_addr, sizeof(void*));
@@ -88,7 +88,7 @@ void run_save_utility()
 void run_load_utility()
 {
     configure_dialog();
-    dialog.mode = PSP_UTILITY_SAVEDATA_AUTOLOAD;
+    dialog.mode = PSP_UTILITY_SAVEDATA_LOAD;
     
     sceUtilitySavedataInitStart(&dialog);
     process_dialog_loop();

@@ -37,10 +37,6 @@ bool init_more_stuff()
 
     if (!game_init_draw()) return false;
     
-    // Oyun acilisinda kaydi arka planda oku (varsa eger)
-    extern void run_load_utility();
-    run_load_utility();
-    
     if (g_settings.audio)
     {
         game_draw_loading_text("Loading audio file", COLOR_WHITE, COLOR_BLACK);
