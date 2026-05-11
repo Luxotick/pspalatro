@@ -18,7 +18,7 @@ void *g_last_frame_buffer;
 
 #define MAX_QUADS 100
 
-static unsigned int __attribute__((aligned(16))) g_draw_list[262144];
+static unsigned int __attribute__((aligned(16))) g_draw_list[65536];
 static struct Vertex __attribute__((aligned(16))) g_vertex_array[2000 * 2];
 static int g_vertex_array_pos = 0;
 
