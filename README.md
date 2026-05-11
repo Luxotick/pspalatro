@@ -23,7 +23,7 @@ There is no roadmap and no plans for future updates, they may come or not, I wil
 Not all implemented rules match the original game exactly, some of them I couldn't find information on (i.e. the probabilities of certain events).
 
 ### Features implemented right now:
-- Custom background saving system without native PSP UI crashes (thanks luxotick!)
+- Custom background saving system without native PSP UI crashes (by me)
 - Main in-game loop
 - Shop (singles and boosters)
 - Card enhancements

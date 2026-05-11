@@ -1,41 +1,104 @@
 #include <pspkernel.h>
+#include <psputility.h>
+#include <pspdisplay.h>
+#include <pspkernel.h>
+#include <pspgu.h>
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 #include "global.h"
+
+__attribute__((aligned(64))) static SceUtilitySavedataParam dialog;
+static bool save_dialog_running = false;
+
+extern void graphics_begin_draw();
+extern void graphics_end_draw();
+extern void graphics_clear(uint32_t color);
+
+void configure_dialog()
+{
+    memset(&dialog, 0, sizeof(SceUtilitySavedataParam));
+    dialog.base.size = sizeof(SceUtilitySavedataParam);
+    dialog.base.language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+    dialog.base.buttonSwap = PSP_UTILITY_ACCEPT_CROSS;
+    dialog.base.graphicsThread = 17;
+    dialog.base.accessThread = 19;
+    dialog.base.fontThread = 18;
+    dialog.base.soundThread = 16;
+    
+    strcpy(dialog.gameName, "PSPALATRO");
+    strcpy(dialog.saveName, "0000");
+    strcpy(dialog.saveNameList[0], "0000");
+    strcpy(dialog.fileName, "save_data.bin");
+    
+    size_t state_size = sizeof(void*) + sizeof(g_game_state);
+    
+    dialog.dataBufSize = state_size;
+    dialog.dataSize = state_size;
+    dialog.dataBuf = memalign(64, state_size);
+    memset(dialog.dataBuf, 0, state_size);
+    
+    strcpy(dialog.sfoParam.title, "PSPalatro");
+    strcpy(dialog.sfoParam.savedataTitle, "PSPalatro Save");
+    strcpy(dialog.sfoParam.detail, "Game Progress");
+    dialog.sfoParam.parentalLevel = 1;
+}
+
+void process_dialog_loop()
+{
+    save_dialog_running = true;
+    while(save_dialog_running)
+    {
+        graphics_begin_draw();
+        graphics_clear(0xFF000000);
+        
+        switch(sceUtilitySavedataGetStatus())
+        {
+            case PSP_UTILITY_DIALOG_VISIBLE:
+                sceUtilitySavedataUpdate(2);
+                break;
+            case PSP_UTILITY_DIALOG_QUIT:
+                sceUtilitySavedataShutdownStart();
+                break;
+            case PSP_UTILITY_DIALOG_NONE:
+                save_dialog_running = false;
+                break;
+            case PSP_UTILITY_DIALOG_FINISHED:
+                break;
+        }
+        graphics_end_draw();
+        sceDisplayWaitVblankStart();
+    }
+}
 
 void run_save_utility()
 {
-    SceUID fd;
+    configure_dialog();
+    dialog.mode = PSP_UTILITY_SAVEDATA_AUTOSAVE;
     
-    sceIoMkdir("ms0:/PSP/SAVEDATA", 0777); 
-    sceIoMkdir("ms0:/PSP/SAVEDATA/PSPALATRO", 0777);
-
-    fd = sceIoOpen("ms0:/PSP/SAVEDATA/PSPALATRO/save_data.bin", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
-    if (fd >= 0)
-    {
-        // 1. Önce all_cards referans adresini kaydedelim ki pointer'ları düzeltebilelim
-        void *base_addr = &g_game_state.all_cards.cards[0];
-        sceIoWrite(fd, &base_addr, sizeof(void*));
-        
-        // 2. Tüm oyunu kaydedelim
-        sceIoWrite(fd, &g_game_state, sizeof(g_game_state));
-        sceIoClose(fd);
-    }
+    void *base_addr = &g_game_state.all_cards.cards[0];
+    memcpy(dialog.dataBuf, &base_addr, sizeof(void*));
+    memcpy((char*)dialog.dataBuf + sizeof(void*), &g_game_state, sizeof(g_game_state));
+    
+    sceUtilitySavedataInitStart(&dialog);
+    process_dialog_loop();
+    free(dialog.dataBuf);
 }
 
 void run_load_utility()
 {
-    SceUID fd = sceIoOpen("ms0:/PSP/SAVEDATA/PSPALATRO/save_data.bin", PSP_O_RDONLY, 0777);
-    if (fd >= 0)
+    configure_dialog();
+    dialog.mode = PSP_UTILITY_SAVEDATA_AUTOLOAD;
+    
+    sceUtilitySavedataInitStart(&dialog);
+    process_dialog_loop();
+    
+    if (dialog.base.result == 0) // SUCCESS
     {
         void *old_base_addr;
-        sceIoRead(fd, &old_base_addr, sizeof(void*));
+        memcpy(&old_base_addr, dialog.dataBuf, sizeof(void*));
+        memcpy(&g_game_state, (char*)dialog.dataBuf + sizeof(void*), sizeof(g_game_state));
         
-        // Tüm state'i okuyalım
-        sceIoRead(fd, &g_game_state, sizeof(g_game_state));
-        sceIoClose(fd);
-
-        // PRX memory kaymışsa (ASLR veya custom firmware adres değişimi) pointerları onaralım
         long ptr_diff = (long)(&g_game_state.all_cards.cards[0]) - (long)old_base_addr;
         
         if (ptr_diff != 0)
@@ -61,4 +124,5 @@ void run_load_utility()
             }
         }
     }
+    free(dialog.dataBuf);
 }
