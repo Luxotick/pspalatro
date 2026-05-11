@@ -26,9 +26,23 @@ void save_debug_log(const char* format, ...) {
 __attribute__((aligned(64))) static SceUtilitySavedataParam dialog;
 static bool save_dialog_running = false;
 
-extern void graphics_begin_draw();
-extern void graphics_end_draw();
-extern void graphics_clear(uint32_t color);
+static void* icon_buffer = NULL;
+static size_t icon_size = 0;
+
+void load_save_icon() {
+    if (icon_buffer) return;
+    FILE* f = fopen("media/pspalatro_icon.png", "rb");
+    if (!f) return;
+    fseek(f, 0, SEEK_END);
+    icon_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    icon_buffer = memalign(64, icon_size);
+    fread(icon_buffer, 1, icon_size, f);
+    fclose(f);
+}
+
+// Small dedicated draw list for save dialog rendering (separate from game's draw list)
+static unsigned int __attribute__((aligned(16))) save_draw_list[2048];
 
 static char nameMultiple[][20] = {
     "0000",
@@ -67,6 +81,8 @@ void configure_dialog()
     strcpy(dialog.fileName, "save_data.bin");
     
     size_t state_size = sizeof(void*) + sizeof(g_game_state);
+    save_debug_log("Allocating save buffer. State size: %d", state_size);
+    
     dialog.dataBufSize = state_size;
     dialog.dataSize = state_size;
     dialog.dataBuf = memalign(64, state_size);
@@ -77,31 +93,60 @@ void configure_dialog()
     strcpy(dialog.sfoParam.detail, "Game Progress");
     dialog.sfoParam.parentalLevel = 1;
 
-    // Set title for New Save slots
+    // Load and set Icon
+    load_save_icon();
+    if (icon_buffer) {
+        dialog.icon0FileData.buf = icon_buffer;
+        dialog.icon0FileData.bufSize = icon_size;
+        dialog.icon0FileData.size = icon_size;
+    }
+
+    // Set title and icon for New Save slots
     memset(&newData, 0, sizeof(PspUtilitySavedataListSaveNewData));
     newData.title = titleShow;
+    if (icon_buffer) {
+        newData.icon0.buf = icon_buffer;
+        newData.icon0.bufSize = icon_size;
+        newData.icon0.size = icon_size;
+    }
     dialog.newData = &newData;
 }
 
 void process_dialog_loop()
 {
     save_dialog_running = true;
+    bool dialog_was_visible = false;
+
     while(save_dialog_running)
     {
+        // 1. Render a clear frame and CLOSE the GU list before dialog update
+        sceGuStart(GU_DIRECT, save_draw_list);
+        sceGuClearColor(0xFF000000);
+        sceGuClear(GU_COLOR_BUFFER_BIT);
+        sceGuFinish();
+        sceGuSync(0, 0);
+
+        // 2. Update dialog (GU list must be closed at this point)
         int status = sceUtilitySavedataGetStatus();
+        save_debug_log("status: %d", status);
 
         if (status == PSP_UTILITY_DIALOG_VISIBLE) {
+            dialog_was_visible = true;
             sceUtilitySavedataUpdate(1);
         } else if (status == PSP_UTILITY_DIALOG_QUIT) {
             sceUtilitySavedataShutdownStart();
         } else if (status == PSP_UTILITY_DIALOG_FINISHED) {
-            // Success or Finished
-        } else if (status == PSP_UTILITY_DIALOG_NONE) {
+            save_dialog_running = false;
+        } else if (status == PSP_UTILITY_DIALOG_NONE && dialog_was_visible) {
             save_dialog_running = false;
         }
 
+        // 3. VBlank wait + swap buffers
         sceDisplayWaitVblankStart();
+        sceGuSwapBuffers();
     }
+
+    save_debug_log("dialog result: %d", dialog.base.result);
 }
 
 void run_save_utility()
@@ -120,13 +165,11 @@ void run_save_utility()
     memcpy((char*)dialog.dataBuf + sizeof(void*), &g_game_state, sizeof(g_game_state));
     
     sceKernelDcacheWritebackAll();
-    sceGuDisplay(GU_FALSE);
 
     int init_res = sceUtilitySavedataInitStart(&dialog);
     save_debug_log("InitStart result: %08x", init_res);
     process_dialog_loop();
     
-    sceGuDisplay(GU_TRUE);
     free(dialog.dataBuf);
     
     extern void audio_init();
@@ -146,13 +189,13 @@ void run_load_utility()
     dialog.mode = PSP_UTILITY_SAVEDATA_LISTLOAD; // Use the slot-based menu mode
     dialog.focus = PSP_UTILITY_SAVEDATA_FOCUS_LATEST;
 
-    sceGuDisplay(GU_FALSE);
+
 
     int init_res = sceUtilitySavedataInitStart(&dialog);
     save_debug_log("InitStart result: %08x", init_res);
     process_dialog_loop();
     
-    sceGuDisplay(GU_TRUE);
+
 
     if (dialog.base.result == 0) // SUCCESS
     {
