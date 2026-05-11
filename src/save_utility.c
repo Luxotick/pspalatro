@@ -81,12 +81,14 @@ void configure_dialog()
     strcpy(dialog.fileName, "save_data.bin");
     
     size_t state_size = sizeof(void*) + sizeof(g_game_state);
-    save_debug_log("Allocating save buffer. State size: %d", state_size);
+    // Real PSP hardware strictly requires dataBufSize to be 64-byte aligned
+    size_t aligned_state_size = (state_size + 63) & ~63;
+    save_debug_log("Allocating save buffer. State size: %d, Aligned: %d", state_size, aligned_state_size);
     
-    dialog.dataBufSize = state_size;
-    dialog.dataSize = state_size;
-    dialog.dataBuf = memalign(64, state_size);
-    memset(dialog.dataBuf, 0, state_size);
+    dialog.dataBufSize = aligned_state_size;
+    dialog.dataSize = state_size; // Keep original dataSize, but buffer is aligned
+    dialog.dataBuf = memalign(64, aligned_state_size);
+    memset(dialog.dataBuf, 0, aligned_state_size);
     
     strcpy(dialog.sfoParam.title, "PSPalatro");
     strcpy(dialog.sfoParam.savedataTitle, "PSPalatro Save");
