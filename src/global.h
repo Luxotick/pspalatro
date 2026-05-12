@@ -676,6 +676,7 @@ struct GameState
         INPUT_FOCUSED_ZONE_RUN_INFO_CLOSE ,
         INPUT_FOCUSED_ZONE_RUN_INFO       ,
         INPUT_FOCUSED_ZONE_PAUSE_MENU     ,
+        INPUT_FOCUSED_ZONE_SETTINGS_MENU  ,
     } input_focused_zone, previous_input_focused_zone;
 
     // ingame

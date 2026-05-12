@@ -74,6 +74,12 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
     struct sample_t *out = (struct sample_t *)buf;
     int sample_count = length;
 
+    if (!g_settings.audio)
+    {
+        memset(buf, 0, buffer_size);
+        return;
+    }
+
     if (g_audio_buffer.ogg_id > -1)
     {
         if (g_audio_buffer.written > 0)

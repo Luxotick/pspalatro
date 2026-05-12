@@ -2227,6 +2227,7 @@ bool automated_event_use_planet()
             }
         }
 
+        event_add_pop_item(&g_automated_event->planet->draw, 24);
         event_add_shake_item(&g_automated_event->planet->draw, 30);
 
         struct PlanetType *planet_type = &(g_planet_types[g_automated_event->planet->type]);
@@ -2464,6 +2465,7 @@ bool automated_event_use_spectral()
                 break;
         }
 
+        event_add_pop_item(&g_automated_event->spectral->draw, 24);
         event_add_shake_item(&g_automated_event->spectral->draw, 30);
     }
 
@@ -2517,6 +2519,7 @@ bool automated_event_use_spectral()
 
                         g_game_state.hand.cards[i]->seal = seal;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2534,6 +2537,7 @@ bool automated_event_use_spectral()
                         else if (random_number < 85) g_game_state.hand.cards[i]->edition = CARD_EDITION_HOLOGRAPHIC;
                         else g_game_state.hand.cards[i]->edition = CARD_EDITION_POLYCHROME;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2756,6 +2760,7 @@ bool automated_event_use_tarot()
             }
         }
 
+        event_add_pop_item(&g_automated_event->tarot->draw, 24);
         event_add_shake_item(&g_automated_event->tarot->draw, 30);
     }
 
@@ -2783,6 +2788,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement = CARD_ENHANCEMENT_LUCKY;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2810,6 +2816,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement = CARD_ENHANCEMENT_MULT;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2835,6 +2842,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_BONUS;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2852,6 +2860,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_WILD;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2869,6 +2878,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_STEEL;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2886,6 +2896,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_GLASS;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -2956,6 +2967,7 @@ bool automated_event_use_tarot()
                         g_game_state.hand.cards[i]->rank++;
                         if (g_game_state.hand.cards[i]->rank > CARD_RANK_ACE) g_game_state.hand.cards[i]->rank = 0;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3012,6 +3024,7 @@ bool automated_event_use_tarot()
                             card_to_be_copied->selected = false;
                         }
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3042,6 +3055,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_GOLD;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
 
                         g_joker_types[JOKER_TYPE_GOLDEN_TICKET].enabled = true;
@@ -3061,6 +3075,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->enhancement  = CARD_ENHANCEMENT_STONE;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3078,6 +3093,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->suit  = CARD_SUIT_DIAMONDS;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3095,6 +3111,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->suit  = CARD_SUIT_CLUBS;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3112,6 +3129,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->suit  = CARD_SUIT_HEARTS;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }
@@ -3144,6 +3162,7 @@ bool automated_event_use_tarot()
                     {
                         g_game_state.hand.cards[i]->suit  = CARD_SUIT_SPADES;
                         g_game_state.hand.cards[i]->selected = false;
+                        event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
                     }
                 }

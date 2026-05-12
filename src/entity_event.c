@@ -566,12 +566,15 @@ void event_func_pop(int index)
 {
     struct Event *event = &(g_events[index]);
 
-    float frequency = 10.0f;
-    float damping_ratio = 1.0f;
-
     float progress = (float)event->current_time / (float)event->duration;
-
-    event->draw->scale = 1.0f + 0.5f * powf(2.0f, -10.0f * progress * damping_ratio) * sinf(frequency * M_PI * progress);
+    if (progress < 0.4f)
+    {
+        event->draw->scale = lerp4(1.0f, 1.18f, progress / 0.4f, -2.0f);
+    }
+    else
+    {
+        event->draw->scale = lerp4(1.18f, 1.0f, (progress - 0.4f) / 0.6f, -2.0f);
+    }
 }
 
 // EVENT_INTERPOLATE_VALUE

@@ -165,8 +165,8 @@ void game_draw_clear_loading(uint32_t color)
 {
     graphics_clear_loading_text(color);
 
-    graphics_show_loading_text(font_small, "Port by S\x82rgio Vieira & luxotick", SCREEN_WIDTH - 180.0f, SCREEN_HEIGHT - 16.0f, 1.0f, COLOR_LIGHT_GREY, false, COLOR_BLACK);
-    graphics_show_loading_text(font_small, "https://github.com/internalregister & https://github.com/luxotick", SCREEN_WIDTH - 210.0f, SCREEN_HEIGHT - 8.0f, 1.0f, COLOR_LIGHT_GREY, false, COLOR_BLACK);
+    graphics_show_loading_text(font_small, "Port by S\x82rgio Vieira & luxotick", 4.0f, SCREEN_HEIGHT - 16.0f, 1.0f, COLOR_LIGHT_GREY, false, COLOR_BLACK);
+    graphics_show_loading_text(font_small, "github.com/internalregister & github.com/luxotick", 4.0f, SCREEN_HEIGHT - 8.0f, 1.0f, COLOR_LIGHT_GREY, false, COLOR_BLACK);
 }
 
 void game_draw_loading_text(const char *text, uint32_t color, uint32_t back_color)
@@ -685,10 +685,14 @@ void game_draw_tarot(struct Tarot *tarot)
 
     float x, y;
     game_draw_get_oscillating_position(&(tarot->draw), &x, &y);
+    x -= ((CARD_WIDTH * tarot->draw.scale) - CARD_WIDTH) / 2.0f;
+    y -= ((CARD_HEIGHT * tarot->draw.scale) - CARD_HEIGHT) / 2.0f;
+    float w = CARD_WIDTH * tarot->draw.scale;
+    float h = CARD_HEIGHT * tarot->draw.scale;
 
     graphics_set_texture(tex_tarots[tex_tarot_x][tex_tarot_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(
-        x, y, CARD_WIDTH, CARD_HEIGHT,
+        x, y, w, h,
         1 + (tarot_type->u - tex_tarot_x * 7) * (TEXTURE_CARD_WIDTH + 2),
         1 + (tarot_type->v - tex_tarot_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, tarot->draw.angle);
@@ -697,7 +701,7 @@ void game_draw_tarot(struct Tarot *tarot)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
         uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (tarot->draw.white_factor > 1.0f ? 1.0f : tarot->draw.white_factor))<<24);        
-        graphics_draw_quad(x, y, CARD_WIDTH, CARD_HEIGHT, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+        graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
 
@@ -710,10 +714,14 @@ void game_draw_spectral(struct Spectral *spectral)
 
     float x, y;
     game_draw_get_oscillating_position(&(spectral->draw), &x, &y);
+    x -= ((CARD_WIDTH * spectral->draw.scale) - CARD_WIDTH) / 2.0f;
+    y -= ((CARD_HEIGHT * spectral->draw.scale) - CARD_HEIGHT) / 2.0f;
+    float w = CARD_WIDTH * spectral->draw.scale;
+    float h = CARD_HEIGHT * spectral->draw.scale;
 
     graphics_set_texture(tex_tarots[tex_spectral_x][tex_spectral_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(
-        x, y, CARD_WIDTH, CARD_HEIGHT,
+        x, y, w, h,
         1 + (spectral_type->u - tex_spectral_x * 7) * (TEXTURE_CARD_WIDTH + 2),
         1 + (spectral_type->v - tex_spectral_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, spectral->draw.angle);
@@ -722,7 +730,7 @@ void game_draw_spectral(struct Spectral *spectral)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
         uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (spectral->draw.white_factor > 1.0f ? 1.0f : spectral->draw.white_factor))<<24);
-        graphics_draw_quad(x, y, CARD_WIDTH, CARD_HEIGHT, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+        graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
 
@@ -735,10 +743,14 @@ void game_draw_planet(struct Planet *planet)
 
     float x, y;
     game_draw_get_oscillating_position(&(planet->draw), &x, &y);
-    
+    x -= ((CARD_WIDTH * planet->draw.scale) - CARD_WIDTH) / 2.0f;
+    y -= ((CARD_HEIGHT * planet->draw.scale) - CARD_HEIGHT) / 2.0f;
+    float w = CARD_WIDTH * planet->draw.scale;
+    float h = CARD_HEIGHT * planet->draw.scale;
+
     graphics_set_texture(tex_tarots[tex_planet_x][tex_planet_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(
-        x, y, CARD_WIDTH, CARD_HEIGHT,
+        x, y, w, h,
         1 + (planet_type->u - tex_planet_x * 7) * (TEXTURE_CARD_WIDTH + 2),
         1 + (planet_type->v - tex_planet_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, planet->draw.angle);
@@ -747,7 +759,7 @@ void game_draw_planet(struct Planet *planet)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
         uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (planet->draw.white_factor > 1.0f ? 1.0f : planet->draw.white_factor))<<24);        
-        graphics_draw_quad(x, y, CARD_WIDTH, CARD_HEIGHT, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+        graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
 
@@ -1987,7 +1999,7 @@ void game_draw_pause_menu()
 
     // Draw the dialog box
     float box_w = 200.0f;
-    float box_h = 130.0f;
+    float box_h = 150.0f;
     float box_x = (480.0f - box_w) / 2.0f;
     float box_y = (272.0f - box_h) / 2.0f;
 
@@ -2005,10 +2017,50 @@ void game_draw_pause_menu()
     uint32_t color_continue = (g_game_state.highlighted_item == 0) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
     uint32_t color_savequit = (g_game_state.highlighted_item == 1) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
     uint32_t color_load = (g_game_state.highlighted_item == 2) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
+    uint32_t color_settings = (g_game_state.highlighted_item == 3) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
 
     graphics_draw_text_center(font_small, "Continue", 240.0f, box_y + 40.0f, 1.0f, color_continue);
-    graphics_draw_text_center(font_small, "Save", 240.0f, box_y + 70.0f, 1.0f, color_savequit);
-    graphics_draw_text_center(font_small, "Load", 240.0f, box_y + 100.0f, 1.0f, color_load);
+    graphics_draw_text_center(font_small, "Save", 240.0f, box_y + 64.0f, 1.0f, color_savequit);
+    graphics_draw_text_center(font_small, "Load", 240.0f, box_y + 88.0f, 1.0f, color_load);
+    graphics_draw_text_center(font_small, "Settings", 240.0f, box_y + 112.0f, 1.0f, color_settings);
+}
+
+void game_draw_settings_menu()
+{
+    graphics_draw_solid_quad(0, 0, 480, 272, 0x88000000);
+
+    float box_w = 300.0f;
+    float box_h = 180.0f;
+    float box_x = (480.0f - box_w) / 2.0f;
+    float box_y = (272.0f - box_h) / 2.0f;
+
+    graphics_draw_solid_quad(box_x, box_y, box_w, box_h, COLOR_BLACK);
+    graphics_draw_solid_quad(box_x - 2.0f, box_y - 2.0f, box_w + 4.0f, 2.0f, COLOR_WHITE);
+    graphics_draw_solid_quad(box_x - 2.0f, box_y + box_h, box_w + 4.0f, 2.0f, COLOR_WHITE);
+    graphics_draw_solid_quad(box_x - 2.0f, box_y, 2.0f, box_h, COLOR_WHITE);
+    graphics_draw_solid_quad(box_x + box_w, box_y, 2.0f, box_h, COLOR_WHITE);
+
+    graphics_draw_text_center(font_big, "SETTINGS", 240.0f, box_y + 10.0f, 1.2f, COLOR_WHITE);
+
+    const char *labels[] = { "Audio", "Card Motion", "Score Speed", "Ante Scaling", "Overclock", "Back" };
+    char values[6][24];
+    strcpy(values[0], g_settings.audio ? "On" : "Off");
+    strcpy(values[1], g_settings.move_cards ? "On" : "Off");
+    sprintf(values[2], "%d", g_settings.speed);
+    sprintf(values[3], "%d", g_settings.ante_score_scaling);
+    strcpy(values[4], g_settings.overclock ? "333 MHz" : "Default");
+    values[5][0] = '\0';
+
+    for (int i = 0; i < 6; i++)
+    {
+        float y = box_y + 42.0f + 20.0f * i;
+        uint32_t color = (g_game_state.highlighted_item == i) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
+        graphics_draw_text(font_small, labels[i], box_x + 24.0f, y, 1.0f, color);
+        if (values[i][0] != '\0')
+        {
+            graphics_draw_text_center(font_small, values[i], box_x + box_w - 58.0f, y + 4.0f, 1.0f, color);
+        }
+    }
 }
 
 void game_draw()
@@ -2046,7 +2098,10 @@ void game_draw()
 
     if (g_game_state.stage == GAME_STAGE_PAUSE_MENU)
     {
-        game_draw_pause_menu();
+        if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_SETTINGS_MENU)
+            game_draw_settings_menu();
+        else
+            game_draw_pause_menu();
     }
 
     game_draw_debug_info();

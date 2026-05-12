@@ -5,7 +5,7 @@
 This project is still under active development and is open to the community.  
 Feedback, bug reports, suggestions and contributions are welcome.
 
-This repository is based on a fork of the original PSPalatro project by [internalregister](https://github.com/internalregister), with additional updates, fixes and features added in this version.
+This repository is based on a fork of the original PSPalatro project by [internalregister](https://github.com/internalregister), with additional updates, fixes and features added by contributors in this version.
 
 This is a limited implementation of the game **Balatro** for **Sony's Playstation Portable** console.  
 The project is for legitimate owners of a **Balatro** copy who wish to experience a partial implementation of the game on the PSP.
@@ -35,21 +35,22 @@ Not all implemented rules match the original game exactly. Some of them were adj
 ### Features implemented right now:
 
 - Native PSP save system
+- Pause menu with runtime settings
 - Main in-game loop
 - Shop, including singles and boosters
 - Card enhancements
 - Card editions
 - 80+ jokers
 - Consumables
-- Spectral cards
+- Spectral cards and Spectral booster packs
 - Full and remaining deck view
 - Experimental background music implementation, works best when overclock is enabled
-- Some sound effects implemented, with more planned to be added
+- Sound effects for UI, scoring, shop and card actions
+- Save-safe audio callback handling for native PSP save dialogs
 - Natural negative jokers
 
 ### Currently being worked on / planned:
 
-- More sound effects
 - Bug fixes and stability improvements
 - More gameplay polishing
 - Additional updates based on feedback and available time
@@ -59,6 +60,8 @@ Not all implemented rules match the original game exactly. Some of them were adj
 Special thanks to [internalregister](https://github.com/internalregister), the original author of the PSPalatro port.
 
 Huge thanks to [OniMock](https://github.com/OniMock) for the major help, support and contributions to this version of the project.
+
+Thanks to [luxotick](https://github.com/luxotick) for ongoing updates, fixes and PSP integration work.
 
 ## Build instructions
 

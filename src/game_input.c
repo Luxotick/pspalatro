@@ -1048,12 +1048,12 @@ void game_input_update_pause_menu(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_DOWN))
     {
-        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 3;
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 4;
     }
     else if (input_was_button_pressed(INPUT_BUTTON_UP))
     {
         if (g_game_state.highlighted_item == 0)
-            g_game_state.highlighted_item = 2;
+            g_game_state.highlighted_item = 3;
         else
             g_game_state.highlighted_item--;
     }
@@ -1076,8 +1076,92 @@ void game_input_update_pause_menu(bool no_input)
             run_load_utility();
             game_go_back_to_previous_stage();
         }
+        else if (g_game_state.highlighted_item == 3) // Settings
+        {
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_SETTINGS_MENU;
+            g_game_state.highlighted_item = 0;
+        }
     }
     else if (input_was_button_pressed(INPUT_BUTTON_START) || input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        game_go_back_to_previous_stage();
+    }
+}
+
+void game_input_apply_overclock_setting()
+{
+    if (g_settings.overclock)
+    {
+        scePowerSetClockFrequency(333, 333, 166);
+    }
+    else
+    {
+        scePowerSetClockFrequency(222, 222, 111);
+    }
+}
+
+void game_input_update_settings_value(int direction)
+{
+    switch (g_game_state.highlighted_item)
+    {
+        case 0:
+            g_settings.audio = !g_settings.audio;
+            break;
+        case 1:
+            g_settings.move_cards = !g_settings.move_cards;
+            break;
+        case 2:
+            g_settings.speed = CLAMP(g_settings.speed + direction, 1, 5);
+            break;
+        case 3:
+            g_settings.ante_score_scaling = CLAMP(g_settings.ante_score_scaling + direction, 1, 3);
+            g_game_state.ante_score_scaling = g_settings.ante_score_scaling - 1;
+            break;
+        case 4:
+            g_settings.overclock = !g_settings.overclock;
+            game_input_apply_overclock_setting();
+            break;
+        case 5:
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
+            g_game_state.highlighted_item = 3;
+            break;
+    }
+}
+
+void game_input_update_settings_menu(bool no_input)
+{
+    if (no_input) return;
+
+    if (input_was_button_pressed(INPUT_BUTTON_DOWN))
+    {
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 6;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_UP))
+    {
+        if (g_game_state.highlighted_item == 0)
+            g_game_state.highlighted_item = 5;
+        else
+            g_game_state.highlighted_item--;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_LEFT))
+    {
+        game_input_update_settings_value(-1);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_RIGHT))
+    {
+        game_input_update_settings_value(1);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CROSS))
+    {
+        game_input_update_settings_value(1);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
+        g_game_state.highlighted_item = 3;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_START))
     {
         game_go_back_to_previous_stage();
     }
@@ -1178,6 +1262,9 @@ void game_input_update(bool no_input)
             break;
         case INPUT_FOCUSED_ZONE_PAUSE_MENU:
             game_input_update_pause_menu(no_input);
+            break;
+        case INPUT_FOCUSED_ZONE_SETTINGS_MENU:
+            game_input_update_settings_menu(no_input);
             break;
         default:
             break;
