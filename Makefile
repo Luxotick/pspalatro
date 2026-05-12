@@ -5,9 +5,14 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 PSPDIR=$(shell psp-config --psp-prefix)
 
 TARGET = pspalatro
-OBJS = src/main.o
+OBJS = src/main.o media/pspalatro_icon.o
+
+
 
 CFLAGS = -Wall -Wno-unused-label -G0 -Ofast
+ifeq ($(DEBUG), 1)
+CFLAGS += -DDEBUG_MODE=1
+endif
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
@@ -21,4 +26,9 @@ PSP_EBOOT_ICON = media/pspalatro_icon.png
 PSP_EBOOT_PIC1 = media/pspalatro_pic.png
 
 include $(PSPSDK)/lib/build.mak
+debug:
+	$(MAKE) DEBUG=1
+
+media/pspalatro_icon.o: media/pspalatro_icon.png
+	psp-ld -r -b binary $< -o $@
 

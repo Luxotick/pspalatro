@@ -6,40 +6,27 @@
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
-#include <stdarg.h>
 #include "global.h"
-
-void save_debug_log(const char* format, ...) {
-    char buffer[256];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    FILE *f = fopen("save_debug.txt", "a");
-    if (f) {
-        fprintf(f, "%s\n", buffer);
-        fclose(f);
-    }
-}
 
 __attribute__((aligned(64))) static SceUtilitySavedataParam dialog;
 static bool save_dialog_running = false;
+
+extern unsigned char _binary_media_pspalatro_icon_png_start[];
+extern unsigned char _binary_media_pspalatro_icon_png_size[];
 
 static void* icon_buffer = NULL;
 static size_t icon_size = 0;
 
 void load_save_icon() {
     if (icon_buffer) return;
-    FILE* f = fopen("media/pspalatro_icon.png", "rb");
-    if (!f) return;
-    fseek(f, 0, SEEK_END);
-    icon_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    icon_size = (size_t)&_binary_media_pspalatro_icon_png_size;
     icon_buffer = memalign(64, icon_size);
-    fread(icon_buffer, 1, icon_size, f);
-    fclose(f);
+    if (!icon_buffer) {
+        return;
+    }
+    memcpy(icon_buffer, _binary_media_pspalatro_icon_png_start, icon_size);
 }
+
 
 // Small dedicated draw list for save dialog rendering (separate from game's draw list)
 static unsigned int __attribute__((aligned(16))) save_draw_list[2048];
@@ -68,31 +55,43 @@ void configure_dialog()
     dialog.base.accessThread = 0x13;
     dialog.base.fontThread = 0x12;
     dialog.base.soundThread = 0x10;
-    
-    // Set encryption key (Crucial for newer firmwares)
-    strncpy(dialog.key, save_key, sizeof(dialog.key));
 
-    strcpy(dialog.gameName, "PSPALATRO");
-    strcpy(dialog.saveName, "0000");
+    // Set encryption key (Crucial for newer firmwares)
+    memset(dialog.key, 0, sizeof(dialog.key));
+    strncpy(dialog.key, save_key, sizeof(dialog.key) - 1);
+
+    memset(dialog.gameName, 0, sizeof(dialog.gameName));
+    strncpy(dialog.gameName, "PSPALATRO", sizeof(dialog.gameName) - 1);
+
+    memset(dialog.saveName, 0, sizeof(dialog.saveName));
+    strncpy(dialog.saveName, "0000", sizeof(dialog.saveName) - 1);
     dialog.saveNameList = nameMultiple;
     dialog.overwrite = 1;
     dialog.focus = PSP_UTILITY_SAVEDATA_FOCUS_LATEST;
 
-    strcpy(dialog.fileName, "save_data.bin");
-    
+    memset(dialog.fileName, 0, sizeof(dialog.fileName));
+    strncpy(dialog.fileName, "SAVE.BIN", sizeof(dialog.fileName) - 1);
+
     size_t state_size = sizeof(void*) + sizeof(g_game_state);
     // Real PSP hardware strictly requires dataBufSize to be 64-byte aligned
     size_t aligned_state_size = (state_size + 63) & ~63;
     save_debug_log("Allocating save buffer. State size: %d, Aligned: %d", state_size, aligned_state_size);
-    
+
     dialog.dataBufSize = aligned_state_size;
     dialog.dataSize = state_size; // Keep original dataSize, but buffer is aligned
     dialog.dataBuf = memalign(64, aligned_state_size);
+    if (!dialog.dataBuf) {
+        save_debug_log("memalign failed for %u bytes", (unsigned)aligned_state_size);
+        return;
+    }
     memset(dialog.dataBuf, 0, aligned_state_size);
-    
-    strcpy(dialog.sfoParam.title, "PSPalatro");
-    strcpy(dialog.sfoParam.savedataTitle, "PSPalatro Save");
-    strcpy(dialog.sfoParam.detail, "Game Progress");
+
+    memset(dialog.sfoParam.title, 0, sizeof(dialog.sfoParam.title));
+    strncpy(dialog.sfoParam.title, "PSPalatro", sizeof(dialog.sfoParam.title) - 1);
+    memset(dialog.sfoParam.savedataTitle, 0, sizeof(dialog.sfoParam.savedataTitle));
+    strncpy(dialog.sfoParam.savedataTitle, "PSPalatro Save", sizeof(dialog.sfoParam.savedataTitle) - 1);
+    memset(dialog.sfoParam.detail, 0, sizeof(dialog.sfoParam.detail));
+    strncpy(dialog.sfoParam.detail, "Game Progress", sizeof(dialog.sfoParam.detail) - 1);
     dialog.sfoParam.parentalLevel = 1;
 
     // Load and set Icon
@@ -154,7 +153,7 @@ void process_dialog_loop()
 void run_save_utility()
 {
     save_debug_log("=== STARTING LISTSAVE UTILITY ===");
-    
+
     extern void audio_end();
     audio_end();
 
@@ -165,17 +164,17 @@ void run_save_utility()
     void *base_addr = &g_game_state.all_cards.cards[0];
     memcpy(dialog.dataBuf, &base_addr, sizeof(void*));
     memcpy((char*)dialog.dataBuf + sizeof(void*), &g_game_state, sizeof(g_game_state));
-    
+
     sceKernelDcacheWritebackAll();
 
     int init_res = sceUtilitySavedataInitStart(&dialog);
     save_debug_log("InitStart result: %08x", init_res);
     process_dialog_loop();
-    
+
     free(dialog.dataBuf);
-    
-    extern void audio_init();
-    audio_init();
+
+    extern void audio_resume();
+    audio_resume();
 
     save_debug_log("=== SAVE UTILITY COMPLETE ===");
 }
@@ -183,7 +182,7 @@ void run_save_utility()
 void run_load_utility()
 {
     save_debug_log("=== STARTING LISTLOAD UTILITY ===");
-    
+
     extern void audio_end();
     audio_end();
 
@@ -196,7 +195,7 @@ void run_load_utility()
     int init_res = sceUtilitySavedataInitStart(&dialog);
     save_debug_log("InitStart result: %08x", init_res);
     process_dialog_loop();
-    
+
 
 
     if (dialog.base.result == 0) // SUCCESS
@@ -204,23 +203,23 @@ void run_load_utility()
         void *old_base_addr;
         memcpy(&old_base_addr, dialog.dataBuf, sizeof(void*));
         memcpy(&g_game_state, (char*)dialog.dataBuf + sizeof(void*), sizeof(g_game_state));
-        
+
         long ptr_diff = (long)(&g_game_state.all_cards.cards[0]) - (long)old_base_addr;
-        
+
         if (ptr_diff != 0)
         {
             for(int i=0; i<g_game_state.full_deck.card_count; i++)
                 g_game_state.full_deck.cards[i] = (struct Card*)((char*)g_game_state.full_deck.cards[i] + ptr_diff);
-                
+
             for(int i=0; i<g_game_state.current_deck.card_count; i++)
                 g_game_state.current_deck.cards[i] = (struct Card*)((char*)g_game_state.current_deck.cards[i] + ptr_diff);
-                
+
             for(int i=0; i<g_game_state.hand.card_count; i++)
                 g_game_state.hand.cards[i] = (struct Card*)((char*)g_game_state.hand.cards[i] + ptr_diff);
-                
+
             for(int i=0; i<g_game_state.played_hand.card_count; i++)
                 g_game_state.played_hand.cards[i] = (struct Card*)((char*)g_game_state.played_hand.cards[i] + ptr_diff);
-                
+
             for(int k=0; k<4; k++)
             {
                 for(int i=0; i<g_game_state.deck_info.card_count[k]; i++)
@@ -230,11 +229,11 @@ void run_load_utility()
             }
         }
     }
-    
+
     free(dialog.dataBuf);
 
-    extern void audio_init();
-    audio_init();
+    extern void audio_resume();
+    audio_resume();
 
     save_debug_log("=== LOAD UTILITY COMPLETE ===");
 }
