@@ -1082,6 +1082,50 @@ void game_draw_deck()
 
 #define DRAW_LEFT_INFO_WIDTH 96
 
+bool game_draw_should_burn_score()
+{
+    if (g_game_state.stage != GAME_STAGE_INGAME ||
+        g_game_state.sub_stage != GAME_SUBSTAGE_INGAME_PICK_HAND ||
+        g_game_state.current_poker_hand == GAME_POKER_HAND_NONE)
+    {
+        return false;
+    }
+
+    double hand_score = (double)g_game_state.current_base_chips * (double)g_game_state.current_base_mult;
+    return hand_score > 0.0 && hand_score >= game_get_current_blind_score();
+}
+
+void game_draw_score_flames(float x, float y, float w, float h)
+{
+    if (!game_draw_should_burn_score()) return;
+
+    // TODO: Replace this placeholder with a richer score-flame animation and
+    // short/faded ambientFire playback from the original assets.
+    graphics_set_no_texture();
+
+    int pulse = (g_time * 5) & 31;
+    int glow_alpha = 0x30 + (pulse < 16 ? pulse : 31 - pulse);
+    uint32_t glow_color = ((uint32_t)glow_alpha << 24) | 0x00004CFF;
+    graphics_draw_solid_quad(x - 2.0f, y - 2.0f, w + 4.0f, h + 4.0f, glow_color);
+
+    for (int i = 0; i < 12; i++)
+    {
+        float flame_x = x + 3.0f + i * ((w - 6.0f) / 12.0f);
+        float flame_w = 4.0f + (float)((i + g_time) & 1);
+        float flame_h = 5.0f + (float)((g_time * (i + 3) + i * 7) % 10);
+        float flame_y = y + h - flame_h + (float)((g_time + i) % 3);
+        uint32_t flame_color = (i & 1) ? 0xAA004CFF : 0x9900B3FF;
+        graphics_draw_solid_quad(flame_x, flame_y, flame_w, flame_h, flame_color);
+    }
+
+    for (int i = 0; i < 6; i++)
+    {
+        float spark_x = x + 6.0f + (float)((g_time * (i + 5) + i * 23) % (int)(w - 12.0f));
+        float spark_y = y + 3.0f + (float)((g_time * (i + 2) + i * 11) % (int)(h - 6.0f));
+        graphics_draw_solid_quad(spark_x, spark_y, 2.0f, 2.0f, 0xCC49B3EF);
+    }
+}
+
 void game_draw_left_info()
 {
     static int shop_anim = 0;
@@ -1144,6 +1188,7 @@ void game_draw_left_info()
 
     graphics_set_no_texture();
     graphics_draw_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 30, 0, 0, 0, 0, COLOR_DARK_GREY_2);
+    game_draw_score_flames(4.0f, (float)y - 2.0f, DRAW_LEFT_INFO_WIDTH - 4.0f, 30.0f);
 
     graphics_draw_text(font_big, "Round Score", 6, y, 1.0f, COLOR_WHITE);    
     
@@ -1171,11 +1216,15 @@ void game_draw_left_info()
 
     y += 10;
     graphics_set_no_texture();
-    if (g_game_state.stage == GAME_STAGE_INGAME && g_game_state.sub_stage == GAME_SUBSTAGE_INGAME_PICK_HAND &&
-        g_game_state.current_base_chips *  g_game_state.current_base_mult >= game_get_current_blind_score())
+    if (game_draw_should_burn_score())
     {
-        graphics_draw_quad(6 + (rand()%5 - 2), y + (rand()%5 - 2), 38, 12, 0, 0, 0, 0, COLOR_LIGHT_BLUE);
-        graphics_draw_quad(56 + (rand()%5 - 2), y + (rand()%5 - 2), 38, 12, 0, 0, 0, 0, COLOR_LIGHT_RED);
+        int chip_dx = ((g_time * 3) % 5) - 2;
+        int chip_dy = ((g_time * 5) % 5) - 2;
+        int mult_dx = ((g_time * 7) % 5) - 2;
+        int mult_dy = ((g_time * 11) % 5) - 2;
+        game_draw_score_flames(4.0f, (float)y - 3.0f, DRAW_LEFT_INFO_WIDTH - 4.0f, 18.0f);
+        graphics_draw_quad(6 + chip_dx, y + chip_dy, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_BLUE);
+        graphics_draw_quad(56 + mult_dx, y + mult_dy, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_RED);
     }
     else
     {
