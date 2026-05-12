@@ -11,24 +11,22 @@
 __attribute__((aligned(64))) static SceUtilitySavedataParam dialog;
 static bool save_dialog_running = false;
 
+extern unsigned char _binary_media_pspalatro_icon_png_start[];
+extern unsigned char _binary_media_pspalatro_icon_png_size[];
+
 static void* icon_buffer = NULL;
 static size_t icon_size = 0;
 
 void load_save_icon() {
     if (icon_buffer) return;
-    FILE* f = fopen("media/pspalatro_icon.png", "rb");
-    if (!f) return;
-    fseek(f, 0, SEEK_END);
-    icon_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    icon_size = (size_t)&_binary_media_pspalatro_icon_png_size;
     icon_buffer = memalign(64, icon_size);
     if (!icon_buffer) {
-        fclose(f);
         return;
     }
-    fread(icon_buffer, 1, icon_size, f);
-    fclose(f);
+    memcpy(icon_buffer, _binary_media_pspalatro_icon_png_start, icon_size);
 }
+
 
 // Small dedicated draw list for save dialog rendering (separate from game's draw list)
 static unsigned int __attribute__((aligned(16))) save_draw_list[2048];
