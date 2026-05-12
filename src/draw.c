@@ -60,6 +60,13 @@ g_editions_tex_coords[CARD_EDITION_COUNT] = {
     { 1, 1 }, // CARD_EDITION_POLYCHROME      
     { 1, 1 },   // CARD_EDITION_NEGATIVE  
 },
+g_seal_tex_coords[] = {
+    { 0, 0 },     // CARD_SEAL_NONE
+    { 143, 1 },   // CARD_SEAL_GOLD
+    { 356, 285 }, // CARD_SEAL_RED
+    { 427, 285 }, // CARD_SEAL_BLUE
+    { 285, 285 }  // CARD_SEAL_PURPLE
+},
 g_ui_assets_tex_coords[UI_ASSETS_COUNT] = {
     { 0, 0 }, // UI_ASSETS_CHIP
     { 18, 0 }, // UI_ASSETS_ACE
@@ -176,6 +183,7 @@ void game_draw_card_hint(struct Card *card)
     if (card->extra_chips > 0) line_count++;
     if (card->enhancement != CARD_ENHANCEMENT_NONE && card->enhancement != CARD_ENHANCEMENT_STONE) line_count++;
     if (card->edition != CARD_EDITION_BASE) line_count++;
+    if (card->seal != CARD_SEAL_NONE) line_count++;
 
     float left = card->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
     if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
@@ -217,6 +225,13 @@ void game_draw_card_hint(struct Card *card)
     if (card->edition != CARD_EDITION_BASE)
     {
         graphics_draw_text_formatted_center(font_small, g_edition_hint[card->edition], NULL, left + CARD_HINT_WIDTH / 2.0f, text_y, 1.0f, COLOR_BLACK);
+        text_y += 8.0f;
+    }
+
+    if (card->seal != CARD_SEAL_NONE)
+    {
+        const char *seal_hints[] = { "", "#5Gold Seal#-: earn #5$3#-", "#5Red Seal#-: retrigger card", "#5Blue Seal#-: creates Planet", "#5Purple Seal#-: discard for Tarot" };
+        graphics_draw_text_formatted_center(font_small, seal_hints[card->seal], NULL, left + CARD_HINT_WIDTH / 2.0f, text_y, 1.0f, COLOR_BLACK);
     }
 }
 
@@ -280,7 +295,7 @@ void game_draw_tarot_hint(struct Tarot *tarot)
     }
 
     float top = tarot->draw.y + CARD_HEIGHT + 4.0f;
-    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;    
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
     float left = tarot->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
     if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
     {
@@ -302,6 +317,43 @@ void game_draw_tarot_hint(struct Tarot *tarot)
     for (int i = 0; i < line_count; i++)
     {
         graphics_draw_text_formatted_center(font_small, g_tarot_types[tarot->type].hint_lines[i], (void*)tarot, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * i), 1.0f, COLOR_BLACK);
+    }
+}
+
+void game_draw_spectral_hint(struct Spectral *spectral)
+{
+    int line_count = 0;
+    for (int i = HINT_SPECTRAL_TYPE_LENGTH - 1; i >= 0; i--)
+    {
+        if (g_spectral_types[spectral->type].hint_lines[i][0] != '\0')
+        {
+            line_count = i + 1;
+            break;
+        }
+    }
+
+    float top = spectral->draw.y + CARD_HEIGHT + 4.0f;
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
+    float left = spectral->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
+    if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
+    {
+        left = SCREEN_WIDTH - CARD_HINT_WIDTH;
+    }
+
+    if (top + height > SCREEN_HEIGHT)
+    {
+        top = spectral->draw.y - height - 4.0f;
+    }
+
+    graphics_set_texture(-1, -1);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF424E54);
+    graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
+
+    graphics_draw_text_center(font_small, g_spectral_types[spectral->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
+
+    for (int i = 0; i < line_count; i++)
+    {
+        graphics_draw_text_formatted_center(font_small, g_spectral_types[spectral->type].hint_lines[i], (void*)spectral, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * i), 1.0f, COLOR_BLACK);
     }
 }
 
@@ -507,6 +559,12 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[card->edition].x, g_editions_tex_coords[card->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, card->draw.angle);
     }
 
+    if (card->seal != CARD_SEAL_NONE)
+    {
+        graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
+        graphics_draw_rotated_quad(x, y, w, h, g_seal_tex_coords[card->seal].x, g_seal_tex_coords[card->seal].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
+    }
+
     if (card->draw.white_factor > 0.0f)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
@@ -643,6 +701,31 @@ void game_draw_tarot(struct Tarot *tarot)
     }
 }
 
+void game_draw_spectral(struct Spectral *spectral)
+{
+    int tex_spectral_x, tex_spectral_y = 0;
+    struct SpectralType *spectral_type = &g_spectral_types[spectral->type];
+    tex_spectral_x = spectral_type->u / 7;
+    tex_spectral_y = spectral_type->v / 5;
+
+    float x, y;
+    game_draw_get_oscillating_position(&(spectral->draw), &x, &y);
+
+    graphics_set_texture(tex_tarots[tex_spectral_x][tex_spectral_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
+    graphics_draw_rotated_quad(
+        x, y, CARD_WIDTH, CARD_HEIGHT,
+        1 + (spectral_type->u - tex_spectral_x * 7) * (TEXTURE_CARD_WIDTH + 2),
+        1 + (spectral_type->v - tex_spectral_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
+        TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, spectral->draw.angle);
+
+    if (spectral->draw.white_factor > 0.0f)
+    {
+        graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
+        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (spectral->draw.white_factor > 1.0f ? 1.0f : spectral->draw.white_factor))<<24);
+        graphics_draw_quad(x, y, CARD_WIDTH, CARD_HEIGHT, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+    }
+}
+
 void game_draw_planet(struct Planet *planet)
 {
     int tex_planet_x, tex_planet_y = 0;
@@ -710,6 +793,12 @@ void game_draw_shop_singles()
             game_draw_tarot(tarot);
             game_draw_price_tag(&tarot->draw, game_util_get_tarot_buy_price(tarot));
         }
+        else if (g_game_state.shop.items[i].type == ITEM_TYPE_SPECTRAL)
+        {
+            struct Spectral *spectral = &(g_game_state.shop.items[i].info.spectral);
+            game_draw_spectral(spectral);
+            game_draw_price_tag(&spectral->draw, game_util_get_spectral_buy_price(spectral));
+        }
     }
 }
 void game_draw_shop_boosters()
@@ -746,6 +835,10 @@ void game_draw_shop_selected_single()
                 game_draw_tarot_hint(&(g_game_state.shop.items[g_game_state.highlighted_item].info.tarot));
                 draw = &g_game_state.shop.items[g_game_state.highlighted_item].info.tarot.draw;
                 break;
+            case ITEM_TYPE_SPECTRAL:
+                game_draw_spectral_hint(&(g_game_state.shop.items[g_game_state.highlighted_item].info.spectral));
+                draw = &g_game_state.shop.items[g_game_state.highlighted_item].info.spectral.draw;
+                break;
             default:
                 break;
         }
@@ -753,7 +846,8 @@ void game_draw_shop_selected_single()
         game_draw_card_frame(draw);
         game_draw_item_button(draw, GAMEPAD_UI_RIGHT_TRIGGER, "Buy", NULL, COLOR_RED_BUTTON, false);
         if (g_game_state.shop.items[g_game_state.highlighted_item].type == ITEM_TYPE_PLANET ||
-            g_game_state.shop.items[g_game_state.highlighted_item].type == ITEM_TYPE_TAROT)
+            g_game_state.shop.items[g_game_state.highlighted_item].type == ITEM_TYPE_TAROT ||
+            g_game_state.shop.items[g_game_state.highlighted_item].type == ITEM_TYPE_SPECTRAL)
         {
             game_draw_item_button(draw, GAMEPAD_UI_LEFT_TRIGGER, "Buy", "&Use", COLOR_GREEN_BUTTON, true);
         }
@@ -781,6 +875,7 @@ void game_draw_consumables()
         if (i == g_game_state.highlighted_item && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_CONSUMABLES) continue;
         if (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET) game_draw_planet(&(g_game_state.consumables.items[i].planet));
         if (g_game_state.consumables.items[i].type == ITEM_TYPE_TAROT) game_draw_tarot(&(g_game_state.consumables.items[i].tarot));
+        if (g_game_state.consumables.items[i].type == ITEM_TYPE_SPECTRAL) game_draw_spectral(&(g_game_state.consumables.items[i].spectral));
     }
 
     char str[24];
@@ -808,6 +903,16 @@ void game_draw_consumables()
             game_draw_item_button(&selected_tarot->draw, GAMEPAD_UI_LEFT_TRIGGER, "Sell", str, COLOR_GREEN_BUTTON, true);
             game_draw_item_button(&selected_tarot->draw, GAMEPAD_UI_RIGHT_TRIGGER, "Use", NULL, COLOR_RED_BUTTON, false);
             game_draw_tarot_hint(selected_tarot);
+        }
+        else if (g_game_state.consumables.items[g_game_state.highlighted_item].type == ITEM_TYPE_SPECTRAL)
+        {
+            struct Spectral *selected_spectral = &(g_game_state.consumables.items[g_game_state.highlighted_item].spectral);
+            game_draw_card_frame(&selected_spectral->draw);
+            game_draw_spectral(selected_spectral);
+            sprintf(str, "$%d", game_util_get_spectral_sell_price(selected_spectral));
+            game_draw_item_button(&selected_spectral->draw, GAMEPAD_UI_LEFT_TRIGGER, "Sell", str, COLOR_GREEN_BUTTON, true);
+            game_draw_item_button(&selected_spectral->draw, GAMEPAD_UI_RIGHT_TRIGGER, "Use", NULL, COLOR_RED_BUTTON, false);
+            game_draw_spectral_hint(selected_spectral);
         }
     }
 }
@@ -1193,6 +1298,9 @@ void game_draw_booster_items()
                     break;
                 case ITEM_TYPE_TAROT:
                     game_draw_tarot(&(g_game_state.shop.booster_items[i].info.tarot));
+                    break;
+                case ITEM_TYPE_SPECTRAL:
+                    game_draw_spectral(&(g_game_state.shop.booster_items[i].info.spectral));
                     break;                    
             }
         }
@@ -1218,6 +1326,9 @@ void game_draw_booster_items()
                     break;
                 case ITEM_TYPE_TAROT:
                     game_draw_tarot_hint(&(g_game_state.shop.booster_items[g_game_state.highlighted_item].info.tarot));
+                    break;
+                case ITEM_TYPE_SPECTRAL:
+                    game_draw_spectral_hint(&(g_game_state.shop.booster_items[g_game_state.highlighted_item].info.spectral));
                     break;
             }
         }

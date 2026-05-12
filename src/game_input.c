@@ -1,5 +1,29 @@
 #include "global.h"
 
+void game_input_play_button_sfx()
+{
+    if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        audio_play_sfx(AUDIO_SFX_CANCEL);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_UP) ||
+             input_was_button_pressed(INPUT_BUTTON_DOWN) ||
+             input_was_button_pressed(INPUT_BUTTON_LEFT) ||
+             input_was_button_pressed(INPUT_BUTTON_RIGHT))
+    {
+        audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CROSS) ||
+             input_was_button_pressed(INPUT_BUTTON_SQUARE) ||
+             input_was_button_pressed(INPUT_BUTTON_TRIANGLE) ||
+             input_was_button_pressed(INPUT_BUTTON_LEFT_TRIGGER) ||
+             input_was_button_pressed(INPUT_BUTTON_RIGHT_TRIGGER) ||
+             input_was_button_pressed(INPUT_BUTTON_START))
+    {
+        audio_play_sfx(AUDIO_SFX_BUTTON);
+    }
+}
+
 void game_input_update_joker(bool no_input)
 {
     if (input_was_button_released(INPUT_BUTTON_CROSS) && g_game_state.moving_card)
@@ -1077,12 +1101,15 @@ void game_input_update(bool no_input)
     {
         if (input_was_button_pressed(INPUT_BUTTON_START))
         {
+            audio_play_sfx(AUDIO_SFX_BUTTON);
             game_go_to_stage(GAME_STAGE_PAUSE_MENU, 0);
             return;
         }
     }
 
     if (no_input) return;
+
+    game_input_play_button_sfx();
 
     switch(g_game_state.input_focused_zone)
     {

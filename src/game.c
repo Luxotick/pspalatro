@@ -236,6 +236,27 @@ struct TarotType g_tarot_types[TAROT_TYPE_COUNT] = {
     { TAROT_TYPE_WORLD        , "The World",            1, 3, 1, 2, { "Converts up to #53#-", "selected cards", "to #Spades#-", "" } }
 };
 
+struct SpectralType g_spectral_types[SPECTRAL_TYPE_COUNT] = {
+    { SPECTRAL_TYPE_FAMILIAR   , "Familiar",     0, 0, 0, 4, { "Destroy #51#- random card", "add #53#- random Enhanced", "face cards to your hand", "" } },
+    { SPECTRAL_TYPE_GRIM       , "Grim",         0, 0, 1, 4, { "Destroy #51#- random card", "add #52#- random Enhanced", "Aces to your hand", "" } },
+    { SPECTRAL_TYPE_INCANTATION, "Incantation",  0, 0, 2, 4, { "Destroy #51#- random card", "add #54#- random Enhanced", "numbered cards to your hand", "" } },
+    { SPECTRAL_TYPE_TALISMAN   , "Talisman",     1, 1, 3, 4, { "Add a #5Gold Seal#-", "to #51#- selected card", "in your hand", "" } },
+    { SPECTRAL_TYPE_AURA       , "Aura",         1, 1, 4, 4, { "Add Foil, Holographic", "or Polychrome edition", "to #51#- selected card", "" } },
+    { SPECTRAL_TYPE_WRAITH     , "Wraith",       0, 0, 5, 4, { "Creates a random", "#5Rare Joker#-", "sets money to #5$0#-", "" } },
+    { SPECTRAL_TYPE_SIGIL      , "Sigil",        0, 0, 6, 4, { "Converts all cards", "in hand to a single", "random #5suit#-", "" } },
+    { SPECTRAL_TYPE_OUIJA      , "Ouija",        0, 0, 7, 4, { "Converts all cards", "in hand to a single", "random #5rank#-", "#2-1#- hand size" } },
+    { SPECTRAL_TYPE_ECTOPLASM  , "Ectoplasm",    0, 0, 8, 4, { "Add #5Negative#- to", "a random Joker,", "#2-1#- hand size", "" } },
+    { SPECTRAL_TYPE_IMMOLATE   , "Immolate",     0, 0, 9, 4, { "Destroys #55#- random", "cards in hand,", "gain #5$20#-", "" } },
+    { SPECTRAL_TYPE_ANKH       , "Ankh",         0, 0, 0, 5, { "Create a copy of a", "random #5Joker#-, destroy", "all other Jokers", "" } },
+    { SPECTRAL_TYPE_DEJA_VU    , "Deja Vu",      1, 1, 1, 5, { "Add a #5Red Seal#-", "to #51#- selected card", "in your hand", "" } },
+    { SPECTRAL_TYPE_HEX        , "Hex",          0, 0, 2, 5, { "Add #5Polychrome#- to", "a random Joker, destroy", "all other Jokers", "" } },
+    { SPECTRAL_TYPE_TRANCE     , "Trance",       1, 1, 3, 5, { "Add a #5Blue Seal#-", "to #51#- selected card", "in your hand", "" } },
+    { SPECTRAL_TYPE_MEDIUM     , "Medium",       1, 1, 4, 5, { "Add a #5Purple Seal#-", "to #51#- selected card", "in your hand", "" } },
+    { SPECTRAL_TYPE_CRYPTID    , "Cryptid",      1, 1, 5, 5, { "Create #52#- copies of", "#51#- selected card", "in your hand", "" } },
+    { SPECTRAL_TYPE_SOUL       , "The Soul",     0, 0, 2, 2, { "Creates a", "#5Legendary Joker#-", "(Must have room)", "" } },
+    { SPECTRAL_TYPE_BLACK_HOLE , "Black Hole",   0, 0, 9, 3, { "Upgrade every", "#5poker hand#-", "by #51#- level", "" } }
+};
+
 struct BoosterPackType g_booster_types[BOOSTER_PACK_TYPE_COUNT][BOOSTER_PACK_SIZE_COUNT][BOOSTER_PACK_MAX_IMAGES] = {
     {
         {
@@ -924,6 +945,7 @@ bool game_shop_buy_highlighted_item(bool use_item)
         if (!game_util_can_buy(game_util_get_joker_buy_price(joker))) return false;
         
         g_game_state.wealth -= game_util_get_joker_buy_price(joker);
+        audio_play_sfx(AUDIO_SFX_COIN);
 
         if (!use_item) automated_event_set(AUTOMATED_EVENT_BUY_JOKER, 0);
 
@@ -938,6 +960,7 @@ bool game_shop_buy_highlighted_item(bool use_item)
         if (!game_util_can_buy(game_util_get_planet_buy_price(planet))) return false;
         
         g_game_state.wealth -= game_util_get_planet_buy_price(planet);
+        audio_play_sfx(use_item ? AUDIO_SFX_TAROT : AUDIO_SFX_COIN);
 
         if (!use_item) automated_event_set(AUTOMATED_EVENT_BUY_CONSUMABLE, 0);
         if (use_item) automated_event_set(AUTOMATED_EVENT_USE_PLANET, 0);
@@ -954,6 +977,7 @@ bool game_shop_buy_highlighted_item(bool use_item)
         {
             if (!game_util_can_buy(game_util_get_tarot_buy_price(tarot))) return false;
             g_game_state.wealth -= game_util_get_tarot_buy_price(tarot);
+            audio_play_sfx(AUDIO_SFX_COIN);
             automated_event_set(AUTOMATED_EVENT_BUY_CONSUMABLE, 0);
         }
 
@@ -962,7 +986,33 @@ bool game_shop_buy_highlighted_item(bool use_item)
             if (!game_util_can_tarot_be_used(tarot->type)) return false;
             if (!game_util_can_buy(game_util_get_tarot_buy_price(tarot))) return false;
             g_game_state.wealth -= game_util_get_tarot_buy_price(tarot);
+            audio_play_sfx(AUDIO_SFX_TAROT);
             automated_event_set(AUTOMATED_EVENT_USE_TAROT, 0);
+        }
+
+        return true;
+    }
+    else if (g_game_state.shop.items[g_game_state.highlighted_item].type == ITEM_TYPE_SPECTRAL)
+    {
+        if (!use_item && !game_util_is_consumable_slot_available()) return false;
+
+        struct Spectral *spectral = &(g_game_state.shop.items[g_game_state.highlighted_item].info.spectral);
+
+        if (!use_item)
+        {
+            if (!game_util_can_buy(game_util_get_spectral_buy_price(spectral))) return false;
+            g_game_state.wealth -= game_util_get_spectral_buy_price(spectral);
+            audio_play_sfx(AUDIO_SFX_COIN);
+            automated_event_set(AUTOMATED_EVENT_BUY_CONSUMABLE, 0);
+        }
+
+        if (use_item)
+        {
+            if (!game_util_can_spectral_be_used(spectral->type)) return false;
+            if (!game_util_can_buy(game_util_get_spectral_buy_price(spectral))) return false;
+            g_game_state.wealth -= game_util_get_spectral_buy_price(spectral);
+            audio_play_sfx(AUDIO_SFX_TAROT);
+            automated_event_set(AUTOMATED_EVENT_USE_SPECTRAL, 0);
         }
 
         return true;
@@ -1010,6 +1060,11 @@ void game_set_shop_item_position()
                     draw = &(g_game_state.shop.items[i].info.tarot.draw);
                     break;
                 }
+                case ITEM_TYPE_SPECTRAL:
+                {
+                    draw = &(g_game_state.shop.items[i].info.spectral.draw);
+                    break;
+                }
                 case ITEM_TYPE_CARD:
                 {
                     draw = &(g_game_state.shop.items[i].info.card.draw);
@@ -1043,7 +1098,25 @@ void game_set_initial_final_shop_booster_item_position()
     {
         if (g_game_state.shop.booster_items[i].available)
         {
-            struct DrawObject *draw = &(g_game_state.shop.booster_items[i].info.joker.draw);
+            struct DrawObject *draw = NULL;
+            switch (g_game_state.shop.booster_items[i].type)
+            {
+                case ITEM_TYPE_CARD:
+                    draw = &(g_game_state.shop.booster_items[i].info.card.draw);
+                    break;
+                case ITEM_TYPE_JOKER:
+                    draw = &(g_game_state.shop.booster_items[i].info.joker.draw);
+                    break;
+                case ITEM_TYPE_PLANET:
+                    draw = &(g_game_state.shop.booster_items[i].info.planet.draw);
+                    break;
+                case ITEM_TYPE_TAROT:
+                    draw = &(g_game_state.shop.booster_items[i].info.tarot.draw);
+                    break;
+                case ITEM_TYPE_SPECTRAL:
+                    draw = &(g_game_state.shop.booster_items[i].info.spectral.draw);
+                    break;
+            }
             game_init_draw_object(draw);
             draw->initial_x = draw->final_x = draw->x = game_util_get_item_position(i, g_game_state.shop.booster_item_count, DRAW_BOOSTER_ITEMS_X, DRAW_BOOSTER_ITEMS_WIDTH, CARD_WIDTH);
             draw->initial_y = draw->final_y = draw->y = DRAW_BOOSTER_ITEMS_Y;
@@ -1116,7 +1189,20 @@ void game_init_booster_items()
         }
         case BOOSTER_PACK_TYPE_SPECTRAL:
         {
-            // TODO:
+            int excluded_spectrals[200];
+            int excluded_spectrals_count = 0;
+
+            g_game_state.shop.booster_total_items = g_game_state.shop.booster_item_count = 2;
+            if (g_game_state.shop.opened_booster.size != BOOSTER_PACK_SIZE_NORMAL) g_game_state.shop.booster_total_items = g_game_state.shop.booster_item_count = 4;
+            for(int i = 0; i < g_game_state.shop.booster_item_count; i++)
+            {
+                g_game_state.shop.booster_items[i].available = true;
+                g_game_state.shop.booster_items[i].type = ITEM_TYPE_SPECTRAL;
+                g_game_state.shop.booster_items[i].info.spectral.type = game_util_get_new_spectral_type(excluded_spectrals, excluded_spectrals_count, true);
+                g_game_state.shop.booster_items[i].info.spectral.edition = CARD_EDITION_BASE;
+
+                excluded_spectrals[excluded_spectrals_count++] = g_game_state.shop.booster_items[i].info.spectral.type;
+            }
             break;
         }
         case BOOSTER_PACK_TYPE_STANDARD:
@@ -1182,6 +1268,7 @@ bool game_use_consumable()
 {
     if (g_game_state.consumables.items[g_game_state.highlighted_item].type == ITEM_TYPE_PLANET)
     {
+        audio_play_sfx(AUDIO_SFX_TAROT);
         automated_event_set(AUTOMATED_EVENT_USE_PLANET, 0);
     }
     else if (g_game_state.consumables.items[g_game_state.highlighted_item].type == ITEM_TYPE_TAROT)
@@ -1191,7 +1278,18 @@ bool game_use_consumable()
         {
             return false;
         }
+        audio_play_sfx(AUDIO_SFX_TAROT);
         automated_event_set(AUTOMATED_EVENT_USE_TAROT, 0);
+    }
+    else if (g_game_state.consumables.items[g_game_state.highlighted_item].type == ITEM_TYPE_SPECTRAL)
+    {
+        struct Spectral *spectral = &(g_game_state.consumables.items[g_game_state.highlighted_item].spectral);
+        if (!game_util_can_spectral_be_used(spectral->type))
+        {
+            return false;
+        }
+        audio_play_sfx(AUDIO_SFX_TAROT);
+        automated_event_set(AUTOMATED_EVENT_USE_SPECTRAL, 0);
     }
 
     return true;
@@ -1203,6 +1301,7 @@ bool game_use_booster_item()
     {
         case ITEM_TYPE_CARD:
         {
+            audio_play_sfx(AUDIO_SFX_CARD);
             automated_event_push(AUTOMATED_EVENT_ADD_BOOSTER_CARD, 0);
             break;
         }
@@ -1210,11 +1309,13 @@ bool game_use_booster_item()
         {
             if (g_game_state.shop.booster_items[g_game_state.highlighted_item].info.joker.edition != CARD_EDITION_NEGATIVE && !game_util_is_joker_slot_available()) return false;
             
+            audio_play_sfx(AUDIO_SFX_COIN);
             automated_event_set(AUTOMATED_EVENT_BUY_JOKER, 0);
             break;
         }
         case ITEM_TYPE_PLANET:
         {
+            audio_play_sfx(AUDIO_SFX_TAROT);
             automated_event_set(AUTOMATED_EVENT_USE_PLANET, 0);
             break;
         }
@@ -1225,7 +1326,19 @@ bool game_use_booster_item()
             {
                 return false;
             }
+            audio_play_sfx(AUDIO_SFX_TAROT);
             automated_event_set(AUTOMATED_EVENT_USE_TAROT, 0);
+            break;
+        }
+        case ITEM_TYPE_SPECTRAL:
+        {
+            struct Spectral *spectral = &(g_game_state.shop.booster_items[g_game_state.highlighted_item].info.spectral);
+            if (!game_util_can_spectral_be_used(spectral->type))
+            {
+                return false;
+            }
+            audio_play_sfx(AUDIO_SFX_TAROT);
+            automated_event_set(AUTOMATED_EVENT_USE_SPECTRAL, 0);
             break;
         }
     }
@@ -1277,7 +1390,12 @@ void game_set_initial_final_consumable_position()
     struct DrawObject *draw = NULL;
     for(int i = 0; i < g_game_state.consumables.item_count; i++)
     {
-        draw = (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET ? &(g_game_state.consumables.items[i].planet.draw) : &(g_game_state.consumables.items[i].tarot.draw));
+        if (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET)
+            draw = &(g_game_state.consumables.items[i].planet.draw);
+        else if (g_game_state.consumables.items[i].type == ITEM_TYPE_TAROT)
+            draw = &(g_game_state.consumables.items[i].tarot.draw);
+        else
+            draw = &(g_game_state.consumables.items[i].spectral.draw);
         draw->initial_x = draw->x;
         draw->final_x = game_util_get_item_position(i, g_game_state.consumables.item_count, DRAW_CONSUMABLES_X, DRAW_CONSUMABLES_WIDTH, CARD_WIDTH); //DRAW_CONSUMABLES_X - (CARD_WIDTH / 2.0f) + (i + 1) * DRAW_CONSUMABLES_WIDTH / ((float)g_game_state.consumables.item_count + 1.0f);
         draw->final_y = DRAW_JOKERS_Y;
@@ -1591,8 +1709,7 @@ void game_init_logic()
 {
     srand(time(0));
 
-    // TODO: ignoring spectral boosters for now
-    for (int i = 0; i < BOOSTER_PACK_TYPE_COUNT - 1; i++)
+    for (int i = 0; i < BOOSTER_PACK_TYPE_COUNT; i++)
     {
         for (int j = 0; j < BOOSTER_PACK_SIZE_COUNT; j++)
         {
@@ -1952,6 +2069,13 @@ void game_init_planet(struct Planet *planet, int type, int edition)
     game_init_draw_object(&(planet->draw));
 }
 
+void game_init_spectral(struct Spectral *spectral, int type, int edition)
+{
+    spectral->type = type;
+    spectral->edition = edition;
+    game_init_draw_object(&(spectral->draw));
+}
+
 void game_add_joker(struct Joker *joker)
 {
     g_game_state.jokers.jokers[g_game_state.jokers.joker_count] = *joker;
@@ -2071,4 +2195,3 @@ void game_update()
 
     g_game_counter++;
 }
-

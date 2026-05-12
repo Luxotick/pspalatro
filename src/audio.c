@@ -26,6 +26,7 @@ struct audio_buffer
 volatile struct audio_buffer g_audio_buffer;
 
 #define MAX_OGG_FILES   10
+#define AUDIO_SFX_CHANNELS 6
 
 struct OggFile
 {
@@ -37,24 +38,90 @@ struct OggFile
     OggVorbis_File vorbis_file;
 } g_ogg_files[MAX_OGG_FILES];
 
+struct sample_t
+{
+    short l, r;
+};
+
+struct AudioSfx
+{
+    bool in_use;
+    struct sample_t *samples;
+    int sample_count;
+    float volume;
+};
+
+struct AudioSfxChannel
+{
+    bool active;
+    int sfx_id;
+    int position;
+};
+
+struct AudioSfx g_audio_sfx[AUDIO_SFX_COUNT];
+volatile struct AudioSfxChannel g_audio_sfx_channels[AUDIO_SFX_CHANNELS];
+
+static short audio_clamp_sample(int sample)
+{
+    if (sample > 32767) return 32767;
+    if (sample < -32768) return -32768;
+    return sample;
+}
+
 void audio_callback(void* buf, unsigned int length, void *userdata)
 {    
+    unsigned int buffer_size = length * sizeof(struct sample_t);
+    struct sample_t *out = (struct sample_t *)buf;
+    int sample_count = length;
+
     if (g_audio_buffer.ogg_id > -1)
     {
         if (g_audio_buffer.written > 0)
         {
-            memcpy((void*)buf, (void*)(g_audio_buffer.chunks[g_audio_buffer.read_pos].data), AUDIO_BUFFER_SIZE);
+            memcpy((void*)buf, (void*)(g_audio_buffer.chunks[g_audio_buffer.read_pos].data), buffer_size);
             g_audio_buffer.read_pos = (g_audio_buffer.read_pos + 1) % AUDIO_BUFFER_CHUNKS;
             g_audio_buffer.written--;
         }
         else
         {
             g_debug_info.audio_wait_read++;
+            memset(buf, 0, AUDIO_BUFFER_SIZE);
         }
     }
     else
     {
-        memset(buf, 0, AUDIO_BUFFER_SIZE);
+        memset(buf, 0, buffer_size);
+    }
+
+    for (int channel_index = 0; channel_index < AUDIO_SFX_CHANNELS; channel_index++)
+    {
+        volatile struct AudioSfxChannel *channel = &g_audio_sfx_channels[channel_index];
+        if (!channel->active) continue;
+        if (channel->sfx_id < 0 || channel->sfx_id >= AUDIO_SFX_COUNT)
+        {
+            channel->active = false;
+            continue;
+        }
+
+        struct AudioSfx *sfx = &g_audio_sfx[channel->sfx_id];
+        if (!sfx->in_use)
+        {
+            channel->active = false;
+            continue;
+        }
+
+        for (int i = 0; i < sample_count; i++)
+        {
+            if (channel->position >= sfx->sample_count)
+            {
+                channel->active = false;
+                break;
+            }
+
+            struct sample_t sample = sfx->samples[channel->position++];
+            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * sfx->volume));
+            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * sfx->volume));
+        }
     }
 }
 
@@ -67,13 +134,31 @@ void audio_init()
 
     g_debug_info.audio_wait_read = 0;
     g_debug_info.audio_wait_write = 0;
-}
 
-struct sample_t
-{
-    short l, r;
-};
+    for (int i = 0; i < AUDIO_SFX_COUNT; i++)
+    {
+        g_audio_sfx[i].in_use = false;
+        g_audio_sfx[i].samples = NULL;
+        g_audio_sfx[i].sample_count = 0;
+        g_audio_sfx[i].volume = 1.0f;
+    }
+
+    for (int i = 0; i < AUDIO_SFX_CHANNELS; i++)
+    {
+        g_audio_sfx_channels[i].active = false;
+    }
+}
 char temp_buffer[AUDIO_BUFFER_SIZE];
+
+static int audio_get_free_ogg_slot()
+{
+    for (int i = 0; i < MAX_OGG_FILES; i++)
+    {
+        if (!g_ogg_files[i].in_use) return i;
+    }
+
+    return -1;
+}
 
 void audio_update()
 {
@@ -136,7 +221,12 @@ void audio_update()
 
 void audio_end()
 {
-    pspAudioEnd();
+    pspAudioSetChannelCallback(0, NULL, NULL);
+}
+
+void audio_resume()
+{
+pspAudioSetChannelCallback(0, audio_callback, NULL);
 }
 
 size_t audio_ogg_callback_read_ogg(void* dst, size_t size1, size_t size2, void* fh)
@@ -192,81 +282,173 @@ long audio_ogg_callback_tell_ogg( void *fh )
 
 int audio_load_ogg(char *filename)
 {
+    int ogg_id = audio_get_free_ogg_slot();
+    if (ogg_id < 0) return -1;
+
     FILE *fp_ogg = fopen(filename, "rb");
+    if (!fp_ogg) return -1;
+
     fseek(fp_ogg, 0, SEEK_END);
     long fsize = ftell(fp_ogg);
     fseek(fp_ogg, 0, SEEK_SET);
-    g_ogg_files[0].file_ptr = malloc(fsize + 1);
-    fread(g_ogg_files[0].file_ptr, fsize, 1, fp_ogg);
+    g_ogg_files[ogg_id].file_ptr = malloc(fsize + 1);
+    if (!g_ogg_files[ogg_id].file_ptr)
+    {
+        fclose(fp_ogg);
+        return -1;
+    }
+    fread(g_ogg_files[ogg_id].file_ptr, fsize, 1, fp_ogg);
     fclose(fp_ogg);
 
     ov_callbacks callbacks;
     
-    g_ogg_files[0].cur_ptr = g_ogg_files[0].file_ptr;
-    g_ogg_files[0].file_size = fsize;
-    g_ogg_files[0].in_use = true;
+    g_ogg_files[ogg_id].cur_ptr = g_ogg_files[ogg_id].file_ptr;
+    g_ogg_files[ogg_id].file_size = fsize;
+    g_ogg_files[ogg_id].in_use = true;
 
     callbacks.read_func = audio_ogg_callback_read_ogg;
     callbacks.seek_func = audio_ogg_callback_seek_ogg;
     callbacks.close_func = audio_ogg_callback_close_ogg;
     callbacks.tell_func = audio_ogg_callback_tell_ogg;
 
-    ov_open_callbacks((void *)&(g_ogg_files[0]), &(g_ogg_files[0].vorbis_file), NULL, -1, callbacks);
+    if (ov_open_callbacks((void *)&(g_ogg_files[ogg_id]), &(g_ogg_files[ogg_id].vorbis_file), NULL, -1, callbacks) < 0)
+    {
+        free(g_ogg_files[ogg_id].file_ptr);
+        g_ogg_files[ogg_id].in_use = false;
+        return -1;
+    }
 
 #ifdef DEBUG    
     {
         DEBUG_PRINTF("Ogg file \"%s\" loaded.\n", filename);
 
-        char **ptr=ov_comment(&(g_ogg_files[0].vorbis_file),-1)->user_comments;
-        vorbis_info *vi=ov_info(&(g_ogg_files[0].vorbis_file),-1);
+        char **ptr=ov_comment(&(g_ogg_files[ogg_id].vorbis_file),-1)->user_comments;
+        vorbis_info *vi=ov_info(&(g_ogg_files[ogg_id].vorbis_file),-1);
         while(*ptr){
           DEBUG_PRINTF("\t%s\n",*ptr);
           ++ptr;
         }
         DEBUG_PRINTF("\n\tBitstream is %d channel, %ldHz\n",vi->channels,vi->rate);
-        DEBUG_PRINTF("\n\tDecoded length: %ld samples\n", (long)ov_pcm_total(&(g_ogg_files[0].vorbis_file),-1));
-        DEBUG_PRINTF("\tEncoded by: %s\n\n",ov_comment(&(g_ogg_files[0].vorbis_file),-1)->vendor);
+        DEBUG_PRINTF("\n\tDecoded length: %ld samples\n", (long)ov_pcm_total(&(g_ogg_files[ogg_id].vorbis_file),-1));
+        DEBUG_PRINTF("\tEncoded by: %s\n\n",ov_comment(&(g_ogg_files[ogg_id].vorbis_file),-1)->vendor);
     }
 #endif
 
-    return 0;
+    return ogg_id;
 }
 
 int audio_load_ogg_from_archive(char *filename)
 {
+    int ogg_id = audio_get_free_ogg_slot();
+    if (ogg_id < 0) return -1;
+
     size_t file_size = 0;
-    g_ogg_files[0].file_ptr = (char *)archive_load_file_entry(filename, &file_size);
+    g_ogg_files[ogg_id].file_ptr = (char *)archive_load_file_entry(filename, &file_size);
+    if (!g_ogg_files[ogg_id].file_ptr) return -1;
 
     ov_callbacks callbacks;
     
-    g_ogg_files[0].cur_ptr = g_ogg_files[0].file_ptr;
-    g_ogg_files[0].file_size = file_size;
-    g_ogg_files[0].in_use = true;
+    g_ogg_files[ogg_id].cur_ptr = g_ogg_files[ogg_id].file_ptr;
+    g_ogg_files[ogg_id].file_size = file_size;
+    g_ogg_files[ogg_id].in_use = true;
 
     callbacks.read_func = audio_ogg_callback_read_ogg;
     callbacks.seek_func = audio_ogg_callback_seek_ogg;
     callbacks.close_func = audio_ogg_callback_close_ogg;
     callbacks.tell_func = audio_ogg_callback_tell_ogg;
 
-    ov_open_callbacks((void *)&(g_ogg_files[0]), &(g_ogg_files[0].vorbis_file), NULL, -1, callbacks);
+    if (ov_open_callbacks((void *)&(g_ogg_files[ogg_id]), &(g_ogg_files[ogg_id].vorbis_file), NULL, -1, callbacks) < 0)
+    {
+        free(g_ogg_files[ogg_id].file_ptr);
+        g_ogg_files[ogg_id].in_use = false;
+        return -1;
+    }
 
 #ifdef DEBUG    
     {
         DEBUG_PRINTF("Ogg file \"%s\" loaded.\n", filename);
 
-        char **ptr=ov_comment(&(g_ogg_files[0].vorbis_file),-1)->user_comments;
-        vorbis_info *vi=ov_info(&(g_ogg_files[0].vorbis_file),-1);
+        char **ptr=ov_comment(&(g_ogg_files[ogg_id].vorbis_file),-1)->user_comments;
+        vorbis_info *vi=ov_info(&(g_ogg_files[ogg_id].vorbis_file),-1);
         while(*ptr){
           DEBUG_PRINTF("\t%s\n",*ptr);
           ++ptr;
         }
         DEBUG_PRINTF("\n\tBitstream is %d channel, %ldHz\n",vi->channels,vi->rate);
-        DEBUG_PRINTF("\n\tDecoded length: %ld samples\n", (long)ov_pcm_total(&(g_ogg_files[0].vorbis_file),-1));
-        DEBUG_PRINTF("\tEncoded by: %s\n\n",ov_comment(&(g_ogg_files[0].vorbis_file),-1)->vendor);
+        DEBUG_PRINTF("\n\tDecoded length: %ld samples\n", (long)ov_pcm_total(&(g_ogg_files[ogg_id].vorbis_file),-1));
+        DEBUG_PRINTF("\tEncoded by: %s\n\n",ov_comment(&(g_ogg_files[ogg_id].vorbis_file),-1)->vendor);
     }
 #endif
 
-    return 0;
+    return ogg_id;
+}
+
+int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
+{
+    if (sfx_id < 0 || sfx_id >= AUDIO_SFX_COUNT) return -1;
+
+    int ogg_id = audio_load_ogg_from_archive(filename);
+    if (ogg_id < 0) return -1;
+
+    long total_pcm = (long)ov_pcm_total(&(g_ogg_files[ogg_id].vorbis_file), -1);
+    vorbis_info *info = ov_info(&(g_ogg_files[ogg_id].vorbis_file), -1);
+    if (total_pcm <= 0 || !info || info->channels <= 0)
+    {
+        audio_destroy_ogg(ogg_id);
+        return -1;
+    }
+
+    struct sample_t *samples = malloc(total_pcm * sizeof(struct sample_t));
+    if (!samples)
+    {
+        audio_destroy_ogg(ogg_id);
+        return -1;
+    }
+
+    int current_section = 0;
+    long total_samples = 0;
+    while (total_samples < total_pcm)
+    {
+        long ret = ov_read(&(g_ogg_files[ogg_id].vorbis_file), temp_buffer, AUDIO_BUFFER_SIZE, 0, 2, 1, &current_section);
+        if (ret <= 0) break;
+
+        short *decoded = (short *)temp_buffer;
+        int frame_count = ret / (sizeof(short) * info->channels);
+        for (int i = 0; i < frame_count && total_samples < total_pcm; i++)
+        {
+            if (info->channels == 1)
+            {
+                samples[total_samples].l = decoded[i];
+                samples[total_samples].r = decoded[i];
+            }
+            else
+            {
+                samples[total_samples].l = decoded[i * info->channels];
+                samples[total_samples].r = decoded[i * info->channels + 1];
+            }
+            total_samples++;
+        }
+    }
+
+    audio_destroy_ogg(ogg_id);
+
+    if (total_samples <= 0)
+    {
+        free(samples);
+        return -1;
+    }
+
+    if (g_audio_sfx[sfx_id].in_use)
+    {
+        free(g_audio_sfx[sfx_id].samples);
+    }
+
+    g_audio_sfx[sfx_id].samples = samples;
+    g_audio_sfx[sfx_id].sample_count = total_samples;
+    g_audio_sfx[sfx_id].volume = volume;
+    g_audio_sfx[sfx_id].in_use = true;
+
+    return sfx_id;
 }
 
 void audio_play_ogg(int ogg_id, float speed)
@@ -296,6 +478,8 @@ void audio_stop()
 
 void audio_destroy_ogg(int ogg_id)
 {
+    if (ogg_id < 0 || ogg_id >= MAX_OGG_FILES || !g_ogg_files[ogg_id].in_use) return;
+
     if (g_audio_buffer.ogg_id == ogg_id)
     {
         audio_stop();
@@ -306,4 +490,43 @@ void audio_destroy_ogg(int ogg_id)
     g_ogg_files[ogg_id].in_use = false;
 }
 
+void audio_play_sfx(int sfx_id)
+{
+    if (!g_settings.audio) return;
+    if (sfx_id < 0 || sfx_id >= AUDIO_SFX_COUNT || !g_audio_sfx[sfx_id].in_use) return;
 
+    int channel_index = -1;
+    for (int i = 0; i < AUDIO_SFX_CHANNELS; i++)
+    {
+        if (!g_audio_sfx_channels[i].active)
+        {
+            channel_index = i;
+            break;
+        }
+    }
+
+    if (channel_index < 0) channel_index = 0;
+
+    g_audio_sfx_channels[channel_index].sfx_id = sfx_id;
+    g_audio_sfx_channels[channel_index].position = 0;
+    g_audio_sfx_channels[channel_index].active = true;
+}
+
+void audio_destroy_sfx()
+{
+    for (int i = 0; i < AUDIO_SFX_CHANNELS; i++)
+    {
+        g_audio_sfx_channels[i].active = false;
+    }
+
+    for (int i = 0; i < AUDIO_SFX_COUNT; i++)
+    {
+        if (g_audio_sfx[i].in_use)
+        {
+            free(g_audio_sfx[i].samples);
+            g_audio_sfx[i].samples = NULL;
+            g_audio_sfx[i].sample_count = 0;
+            g_audio_sfx[i].in_use = false;
+        }
+    }
+}

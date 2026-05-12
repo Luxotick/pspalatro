@@ -1,3 +1,4 @@
+#include "debug.c"
 #include "global.h"
 
 PSP_MODULE_INFO("PSPalatro", 0, 1, 0);
@@ -20,6 +21,22 @@ PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU);
 struct DebugInfo g_debug_info;
 
 int ogg_id = -1;
+
+void load_audio_sfx()
+{
+    game_draw_loading_text("Loading sound effects", COLOR_WHITE, COLOR_BLACK);
+
+    audio_load_sfx_from_archive(AUDIO_SFX_BUTTON, "resources/sounds/button.ogg", 0.55f);
+    audio_load_sfx_from_archive(AUDIO_SFX_CANCEL, "resources/sounds/cancel.ogg", 0.55f);
+    audio_load_sfx_from_archive(AUDIO_SFX_HIGHLIGHT, "resources/sounds/highlight1.ogg", 0.45f);
+    audio_load_sfx_from_archive(AUDIO_SFX_CARD, "resources/sounds/card1.ogg", 0.65f);
+    audio_load_sfx_from_archive(AUDIO_SFX_CHIPS, "resources/sounds/chips1.ogg", 0.60f);
+    audio_load_sfx_from_archive(AUDIO_SFX_MULT, "resources/sounds/multhit1.ogg", 0.60f);
+    audio_load_sfx_from_archive(AUDIO_SFX_COIN, "resources/sounds/coin3.ogg", 0.70f);
+    audio_load_sfx_from_archive(AUDIO_SFX_TAROT, "resources/sounds/tarot1.ogg", 0.65f);
+    audio_load_sfx_from_archive(AUDIO_SFX_WHOOSH, "resources/sounds/whoosh1.ogg", 0.55f);
+    audio_load_sfx_from_archive(AUDIO_SFX_WIN, "resources/sounds/win.ogg", 0.75f);
+}
 
 bool init_more_stuff()
 {
@@ -47,6 +64,7 @@ bool init_more_stuff()
             return false;
         }
         audio_play_ogg(ogg_id, 0.8f);
+        load_audio_sfx();
     }
 
     archive_close();
@@ -95,6 +113,7 @@ int main(int argc, char **argv)
     {
         audio_stop();
         audio_destroy_ogg(ogg_id);
+        audio_destroy_sfx();
     }
 
     audio_end();    

@@ -35,6 +35,7 @@ bool automated_event_buy_consumable();
 bool automated_event_sell_consumable();
 bool automated_event_use_planet();
 bool automated_event_use_tarot();
+bool automated_event_use_spectral();
 bool automated_event_add_score();
 bool automated_event_wait();
 bool automated_event_select_blind();
@@ -65,7 +66,8 @@ struct AutomatedEventType
     { AUTOMATED_EVENT_SELECT_BLIND        , automated_event_select_blind },
     { AUTOMATED_EVENT_CEREMONIAL_DAGGER   , automated_event_ceremonial_dagger },
     { AUTOMATED_EVENT_OPEN_BOOSTER        , automated_event_open_booster },
-    { AUTOMATED_EVENT_ADD_BOOSTER_CARD    , automated_event_add_booster_card }
+    { AUTOMATED_EVENT_ADD_BOOSTER_CARD    , automated_event_add_booster_card },
+    { AUTOMATED_EVENT_USE_SPECTRAL        , automated_event_use_spectral }
 };
 
 #define AUTO_EVENT_MAX_PARAMS 20
@@ -78,6 +80,7 @@ struct AutomatedEvent
     int params[AUTO_EVENT_MAX_PARAMS];
     struct Planet *planet;
     struct Tarot *tarot;
+    struct Spectral *spectral;
 
     uint32_t frame_count;
 };
@@ -246,6 +249,7 @@ bool automated_event_add_score()
 
         if (AUTO_EVENT_VAL(ADD_SCORE_PARAM_CHIPS) > 0)
         {
+            audio_play_sfx(AUDIO_SFX_CHIPS);
             if (AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX) >= 0)
             {
                 event_add_pop_item(aux_automated_event_get_card_draw(AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX), EVENT_CARD_LOCATION_JOKER), VARIABLE_TIME(SCORE_TIMESPAN));
@@ -266,6 +270,7 @@ bool automated_event_add_score()
     {
         if (AUTO_EVENT_VAL(ADD_SCORE_PARAM_MULT) > 0)
         {
+            audio_play_sfx(AUDIO_SFX_MULT);
             if (AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX) >= 0)
             {
                 event_add_pop_item(aux_automated_event_get_card_draw(AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX), EVENT_CARD_LOCATION_JOKER), VARIABLE_TIME(SCORE_TIMESPAN));
@@ -286,6 +291,7 @@ bool automated_event_add_score()
     {
         if (AUTO_EVENT_VAL(ADD_SCORE_PARAM_MULT_MULT_10) > 0)
         {
+            audio_play_sfx(AUDIO_SFX_MULT);
             if (AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX) >= 0)
             {
                 event_add_pop_item(aux_automated_event_get_card_draw(AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX), EVENT_CARD_LOCATION_JOKER), VARIABLE_TIME(SCORE_TIMESPAN));
@@ -307,6 +313,7 @@ bool automated_event_add_score()
     {
         if (AUTO_EVENT_VAL(ADD_SCORE_PARAM_MONEY) > 0)
         {
+            audio_play_sfx(AUDIO_SFX_COIN);
             if (AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX) >= 0)
             {                
                 event_add_pop_item(aux_automated_event_get_card_draw(AUTO_EVENT_VAL(SCORE_PARAM_RELATED_JOKER_INDEX), EVENT_CARD_LOCATION_JOKER), VARIABLE_TIME(SCORE_TIMESPAN));
@@ -363,6 +370,7 @@ bool automated_event_score()
     
     AUTO_EVENT_STAGE() // Move cards to played area
     {
+        audio_play_sfx(AUDIO_SFX_CARD);
         g_current_speedup = powf(SPEEDUP_STEP, (float)(g_settings.speed - 1));
         g_current_speedup = MAX(g_current_speedup, SPEEDUP_MIN);
         g_score_count = 0;
@@ -634,6 +642,15 @@ bool automated_event_score()
         }
     }
 
+    AUTO_EVENT_STAGE() // Seals
+    {
+        struct Card *card = g_game_state.played_hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD)];
+        if (card->seal == CARD_SEAL_GOLD)
+        {
+            AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 0, 0, 3, AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD), EVENT_CARD_LOCATION_PLAYED, -1)
+        }
+    }
+
     AUTO_EVENT_NAMED_STAGE(SCORE_CARD_JOKER) // Joker per card
     {        
         switch (game_util_get_joker_type(AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_JOKER_FOR_CARD)))
@@ -864,6 +881,15 @@ bool automated_event_score()
 
     AUTO_EVENT_NAMED_STAGE(SCORE_NEXT_CARD) // Move to next card
     {
+        struct Card *card = g_game_state.played_hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD)];
+        if (card->seal == CARD_SEAL_RED && g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] == 0)
+        {
+            g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] = 1;
+            g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT]++;
+            event_add_shake_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
+            event_add_show_number(0.0, AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD), EVENT_CARD_LOCATION_PLAYED, SCORE_NUMBER_AGAIN, VARIABLE_TIME(SCORE_TIMESPAN));
+        }
+
         if (g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT] > 0)
         {
             g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT]--;
@@ -871,6 +897,7 @@ bool automated_event_score()
         }
         else
         {
+            g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] = 0;
             automated_event_score_init_jokers();
             g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER]++;
             if (g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER] < g_game_state.scoring_card_count)
@@ -1381,6 +1408,7 @@ bool automated_event_score()
         {
             if (game_util_chance_occurs(1, 4))
             {
+                audio_play_sfx(AUDIO_SFX_WHOOSH);
                 game_remove_card_from_full_deck(g_game_state.played_hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD)]);
                 game_remove_card_from_played_hand(AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD));
                 g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER]--;
@@ -1696,6 +1724,7 @@ bool automated_event_discard()
             }
         }
         struct Card *card = g_game_state.hand.cards[g_automated_event->params[0]];
+        audio_play_sfx(AUDIO_SFX_CARD);
         event_add(EVENT_MOVE_CARD, 0, EVENT_CARD_LOCATION_HAND, g_automated_event->params[0], SCREEN_WIDTH + 10, card->draw.y, DISCARD_TIMESPAN);
     }
 
@@ -1703,6 +1732,23 @@ bool automated_event_discard()
 
     AUTO_EVENT_STAGE()
     {
+        if (g_game_state.hand.cards[g_automated_event->params[0]]->seal == CARD_SEAL_PURPLE && game_util_has_room_in_consumables())
+        {
+            int excluded_tarots[100];
+            int excluded_tarots_count = 0;
+            for (int j = 0; j < g_game_state.consumables.item_count; j++)
+            {
+                if (g_game_state.consumables.items[j].type == ITEM_TYPE_TAROT)
+                {
+                    excluded_tarots[excluded_tarots_count++] = g_game_state.consumables.items[j].tarot.type;
+                }
+            }
+            g_game_state.consumables.items[g_game_state.consumables.item_count].type = ITEM_TYPE_TAROT;
+            game_init_tarot(&(g_game_state.consumables.items[g_game_state.consumables.item_count].tarot), game_util_get_new_tarot_type(excluded_tarots, excluded_tarots_count), CARD_EDITION_BASE);
+            game_set_object_off_screen(&(g_game_state.consumables.items[g_game_state.consumables.item_count].tarot.draw));
+            g_game_state.consumables.item_count++;
+            event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_CONSUMABLES, 0, 0, 0, 10);
+        }
         g_game_state.hand.cards[g_automated_event->params[0]]->selected = false;
         game_discard_card(g_automated_event->params[0]);
         AUTO_EVENT_GO_TO_STAGE(DISCARD)
@@ -1773,6 +1819,7 @@ bool automated_event_draw_cards()
         game_sort_hand();
         g_automated_event->params[0]--;
 
+        audio_play_sfx(AUDIO_SFX_CARD);
         event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, 0, 0, 0, DRAW_TIMESPAN);
     }
 
@@ -1808,6 +1855,7 @@ bool automated_event_cash_out()
     
     AUTO_EVENT_STAGE() // Blind money
     {
+        audio_play_sfx(AUDIO_SFX_COIN);
         switch(g_game_state.blind)
         {
             case GAME_BLIND_SMALL:
@@ -1829,6 +1877,7 @@ bool automated_event_cash_out()
 
     AUTO_EVENT_STAGE() // Remaining hands
     {
+        audio_play_sfx(AUDIO_SFX_COIN);
         g_game_state.cash_out_hands = g_game_state.current_hands;
         g_game_state.cash_out_value += g_game_state.cash_out_hands;
     }
@@ -1837,6 +1886,7 @@ bool automated_event_cash_out()
 
     AUTO_EVENT_STAGE() // Interest money
     {
+        audio_play_sfx(AUDIO_SFX_COIN);
         int value_to_consider = CLAMP(g_game_state.wealth, 0, 25);
         g_game_state.cash_out_interest = value_to_consider / 5;
         g_game_state.cash_out_value += g_game_state.cash_out_interest;
@@ -1896,6 +1946,7 @@ bool automated_event_cash_out()
 
     AUTO_EVENT_NAMED_STAGE(END_ROUND)
     {
+        audio_play_sfx(AUDIO_SFX_WIN);
         g_game_state.cash_out_done = true;
     }
 
@@ -2002,6 +2053,7 @@ bool automated_event_buy_consumable()
         g_game_state.consumables.items[g_game_state.consumables.item_count].type = g_game_state.shop.items[g_game_state.highlighted_item].type;
         g_game_state.consumables.items[g_game_state.consumables.item_count].planet = g_game_state.shop.items[g_game_state.highlighted_item].info.planet;
         g_game_state.consumables.items[g_game_state.consumables.item_count].tarot = g_game_state.shop.items[g_game_state.highlighted_item].info.tarot;
+        g_game_state.consumables.items[g_game_state.consumables.item_count].spectral = g_game_state.shop.items[g_game_state.highlighted_item].info.spectral;
         g_game_state.consumables.item_count++;
         g_game_state.shop.items[g_game_state.highlighted_item].available = false;
         g_game_state.shop.item_count--;
@@ -2097,6 +2149,11 @@ bool automated_event_sell_consumable()
             case ITEM_TYPE_TAROT:
             {
                 g_game_state.wealth += game_util_get_tarot_sell_price(&(g_game_state.consumables.items[g_game_state.highlighted_item].tarot));
+                break;
+            }
+            case ITEM_TYPE_SPECTRAL:
+            {
+                g_game_state.wealth += game_util_get_spectral_sell_price(&(g_game_state.consumables.items[g_game_state.highlighted_item].spectral));
                 break;
             }
             default:
@@ -2282,6 +2339,389 @@ bool automated_event_use_planet()
 #define USE_TAROT_CREATE_CONSUMABLES_VALUE_LAST     1
 #define USE_TAROT_CREATE_CONSUMABLES_VALUE_TAROTS   2
 #define USE_TAROT_CREATE_CONSUMABLES_VALUE_PLANETS  3
+
+int automated_event_get_random_joker_type_by_rarity(int rarity)
+{
+    int possible_jokers[200];
+    int possible_joker_count = 0;
+    for (int i = 0; i < JOKER_TYPE_COUNT; i++)
+    {
+        if (g_joker_types[i].enabled && g_joker_types[i].rarity == rarity)
+        {
+            possible_jokers[possible_joker_count++] = i;
+        }
+    }
+    if (possible_joker_count == 0 && rarity == JOKER_RARITY_LEGENDARY)
+    {
+        return automated_event_get_random_joker_type_by_rarity(JOKER_RARITY_RARE);
+    }
+    if (possible_joker_count == 0) return JOKER_TYPE_JOKER;
+    return possible_jokers[game_util_rand(0, possible_joker_count - 1)];
+}
+
+void automated_event_remove_card_from_hand_and_deck(int hand_index)
+{
+    struct Card *card = g_game_state.hand.cards[hand_index];
+    game_discard_card(hand_index);
+    game_remove_card_from_full_deck(card);
+}
+
+struct Card *automated_event_create_card_in_hand(int rank, int suit, int enhancement)
+{
+    struct Card *card = game_set_new_card();
+    card->rank = rank;
+    card->suit = suit;
+    card->extra_chips = 0;
+    card->enhancement = enhancement;
+    card->edition = CARD_EDITION_BASE;
+    card->seal = CARD_SEAL_NONE;
+    card->selected = false;
+    game_init_draw_object(&(card->draw));
+    game_set_object_off_screen(&(card->draw));
+    game_add_card_to_full_deck(card);
+    game_add_card_to_hand(card);
+    return card;
+}
+
+void automated_event_remove_used_spectral()
+{
+    switch(g_automated_event->params[0])
+    {
+        case INPUT_FOCUSED_ZONE_CONSUMABLES:
+        {
+            for(int j = g_game_state.highlighted_item+1; j < g_game_state.consumables.item_count; j++)
+            {
+                g_game_state.consumables.items[j - 1] = g_game_state.consumables.items[j];
+            }
+            g_game_state.consumables.item_count--;
+
+            g_game_state.highlighted_item--;
+            if (g_game_state.highlighted_item < 0) g_game_state.highlighted_item = 0;
+
+            game_set_initial_final_consumable_position();
+            event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_CONSUMABLES, 0, 0, 0, 10);
+            break;
+        }
+        case INPUT_FOCUSED_ZONE_SHOP_SINGLES:
+        {
+            g_game_state.shop.items[g_game_state.highlighted_item].available = false;
+            g_game_state.shop.item_count--;
+            break;
+        }
+        case INPUT_FOCUSED_ZONE_BOOSTER_ITEMS:
+        {
+            g_game_state.shop.booster_items[g_game_state.highlighted_item].available = false;
+            g_game_state.shop.booster_item_count--;
+            break;
+        }
+    }
+}
+
+void automated_event_finish_used_spectral()
+{
+    if (g_automated_event->params[0] == INPUT_FOCUSED_ZONE_CONSUMABLES && g_game_state.consumables.item_count > 0)
+    {
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_CONSUMABLES;
+    }
+    else if (g_automated_event->params[0] == INPUT_FOCUSED_ZONE_BOOSTER_ITEMS)
+    {
+        if (g_game_state.shop.booster_total_items - g_game_state.shop.booster_item_count == (g_game_state.shop.opened_booster.size == BOOSTER_PACK_SIZE_MEGA ? 2 : 1))
+        {
+            g_game_state.highlighted_item = 0;
+            game_go_to_stage(GAME_STAGE_SHOP, GAME_SUBSTAGE_SHOP_MAIN);
+        }
+        else
+        {
+            g_game_state.highlighted_item = game_util_get_first_shop_booster_item_index();
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_BOOSTER_ITEMS;
+        }
+    }
+    else
+    {
+        g_game_state.input_focused_zone = game_util_get_default_focus_zone();
+    }
+}
+
+bool automated_event_use_spectral()
+{
+    AUTO_EVENT_START()
+
+    AUTO_EVENT_STAGE()
+    {
+        g_automated_event->params[0] = g_game_state.input_focused_zone;
+        g_game_state.input_focused_zone = -1;
+
+        switch(g_automated_event->params[0])
+        {
+            case INPUT_FOCUSED_ZONE_CONSUMABLES:
+                g_automated_event->spectral = &(g_game_state.consumables.items[g_game_state.highlighted_item].spectral);
+                break;
+            case INPUT_FOCUSED_ZONE_SHOP_SINGLES:
+                g_automated_event->spectral = &(g_game_state.shop.items[g_game_state.highlighted_item].info.spectral);
+                break;
+            case INPUT_FOCUSED_ZONE_BOOSTER_ITEMS:
+                g_automated_event->spectral = &(g_game_state.shop.booster_items[g_game_state.highlighted_item].info.spectral);
+                break;
+        }
+
+        event_add_shake_item(&g_automated_event->spectral->draw, 30);
+    }
+
+    AUTO_EVENT_STAGE_WAIT(20)
+
+    AUTO_EVENT_STAGE()
+    {
+        event_add_interpolate_value(&(g_automated_event->spectral->draw.white_factor), 0.0f, 1.0f, 20);
+        audio_play_sfx(AUDIO_SFX_TAROT);
+
+        switch (g_automated_event->spectral->type)
+        {
+            case SPECTRAL_TYPE_FAMILIAR:
+            case SPECTRAL_TYPE_GRIM:
+            case SPECTRAL_TYPE_INCANTATION:
+            {
+                if (g_game_state.hand.card_count > 0)
+                {
+                    automated_event_remove_card_from_hand_and_deck(game_util_rand(0, g_game_state.hand.card_count - 1));
+                }
+
+                int cards_to_add = g_automated_event->spectral->type == SPECTRAL_TYPE_FAMILIAR ? 3 : (g_automated_event->spectral->type == SPECTRAL_TYPE_GRIM ? 2 : 4);
+                for (int i = 0; i < cards_to_add; i++)
+                {
+                    int rank = CARD_RANK_ACE;
+                    if (g_automated_event->spectral->type == SPECTRAL_TYPE_FAMILIAR)
+                        rank = game_util_rand(CARD_RANK_JACK, CARD_RANK_KING);
+                    else if (g_automated_event->spectral->type == SPECTRAL_TYPE_INCANTATION)
+                        rank = game_util_rand(CARD_RANK_2, CARD_RANK_10);
+
+                    int enhancement = game_util_rand(CARD_ENHANCEMENT_BONUS, CARD_ENHANCEMENT_LUCKY);
+                    if (enhancement == CARD_ENHANCEMENT_STONE) enhancement = CARD_ENHANCEMENT_LUCKY;
+                    automated_event_create_card_in_hand(rank, game_util_rand(0, 3), enhancement);
+                }
+                event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, -1, 0, 0, 20);
+                break;
+            }
+            case SPECTRAL_TYPE_TALISMAN:
+            case SPECTRAL_TYPE_DEJA_VU:
+            case SPECTRAL_TYPE_TRANCE:
+            case SPECTRAL_TYPE_MEDIUM:
+            {
+                for (int i = 0; i < g_game_state.hand.card_count; i++)
+                {
+                    if (g_game_state.hand.cards[i]->selected)
+                    {
+                        int seal = CARD_SEAL_GOLD;
+                        if (g_automated_event->spectral->type == SPECTRAL_TYPE_DEJA_VU) seal = CARD_SEAL_RED;
+                        else if (g_automated_event->spectral->type == SPECTRAL_TYPE_TRANCE) seal = CARD_SEAL_BLUE;
+                        else if (g_automated_event->spectral->type == SPECTRAL_TYPE_MEDIUM) seal = CARD_SEAL_PURPLE;
+
+                        g_game_state.hand.cards[i]->seal = seal;
+                        g_game_state.hand.cards[i]->selected = false;
+                        event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
+                    }
+                }
+                g_game_state.selected_cards_count = 0;
+                break;
+            }
+            case SPECTRAL_TYPE_AURA:
+            {
+                for (int i = 0; i < g_game_state.hand.card_count; i++)
+                {
+                    if (g_game_state.hand.cards[i]->selected)
+                    {
+                        int random_number = game_util_rand(0, 99);
+                        if (random_number < 50) g_game_state.hand.cards[i]->edition = CARD_EDITION_FOIL;
+                        else if (random_number < 85) g_game_state.hand.cards[i]->edition = CARD_EDITION_HOLOGRAPHIC;
+                        else g_game_state.hand.cards[i]->edition = CARD_EDITION_POLYCHROME;
+                        g_game_state.hand.cards[i]->selected = false;
+                        event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
+                    }
+                }
+                g_game_state.selected_cards_count = 0;
+                break;
+            }
+            case SPECTRAL_TYPE_WRAITH:
+            case SPECTRAL_TYPE_SOUL:
+            {
+                if (game_util_has_room_in_jokers())
+                {
+                    int rarity = g_automated_event->spectral->type == SPECTRAL_TYPE_SOUL ? JOKER_RARITY_LEGENDARY : JOKER_RARITY_RARE;
+                    g_game_state.jokers.jokers[g_game_state.jokers.joker_count].type = automated_event_get_random_joker_type_by_rarity(rarity);
+                    g_game_state.jokers.jokers[g_game_state.jokers.joker_count].edition = CARD_EDITION_BASE;
+                    game_init_joker(&(g_game_state.jokers.jokers[g_game_state.jokers.joker_count]));
+                    game_set_object_off_screen(&(g_game_state.jokers.jokers[g_game_state.jokers.joker_count].draw));
+                    g_game_state.jokers.joker_count++;
+                    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_JOKER, 0, 0, 0, 20);
+                }
+                if (g_automated_event->spectral->type == SPECTRAL_TYPE_WRAITH)
+                {
+                    g_game_state.wealth = 0;
+                }
+                break;
+            }
+            case SPECTRAL_TYPE_SIGIL:
+            {
+                int suit = game_util_rand(0, 3);
+                for (int i = 0; i < g_game_state.hand.card_count; i++)
+                {
+                    g_game_state.hand.cards[i]->suit = suit;
+                    event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
+                }
+                break;
+            }
+            case SPECTRAL_TYPE_OUIJA:
+            {
+                int rank = game_util_rand(CARD_RANK_2, CARD_RANK_ACE);
+                for (int i = 0; i < g_game_state.hand.card_count; i++)
+                {
+                    if (g_game_state.hand.cards[i]->enhancement != CARD_ENHANCEMENT_STONE)
+                    {
+                        g_game_state.hand.cards[i]->rank = rank;
+                    }
+                    event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);
+                }
+                g_game_state.base_hand_size = MAX(1, g_game_state.base_hand_size - 1);
+                break;
+            }
+            case SPECTRAL_TYPE_ECTOPLASM:
+            case SPECTRAL_TYPE_HEX:
+            {
+                int possible_jokers[MAX_JOKERS];
+                int possible_joker_count = 0;
+                for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+                {
+                    if (g_game_state.jokers.jokers[i].edition == CARD_EDITION_BASE)
+                    {
+                        possible_jokers[possible_joker_count++] = i;
+                    }
+                }
+
+                if (possible_joker_count > 0)
+                {
+                    int joker_index = possible_jokers[game_util_rand(0, possible_joker_count - 1)];
+                    if (g_automated_event->spectral->type == SPECTRAL_TYPE_ECTOPLASM)
+                    {
+                        g_game_state.jokers.jokers[joker_index].edition = CARD_EDITION_NEGATIVE;
+                        g_game_state.jokers.negative_count++;
+                        g_game_state.base_hand_size = MAX(1, g_game_state.base_hand_size - 1);
+                    }
+                    else
+                    {
+                        struct Joker kept_joker = g_game_state.jokers.jokers[joker_index];
+                        kept_joker.edition = CARD_EDITION_POLYCHROME;
+                        g_game_state.jokers.jokers[0] = kept_joker;
+                        g_game_state.jokers.joker_count = 1;
+                        g_game_state.jokers.negative_count = 0;
+                    }
+                    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_JOKER, 0, 0, 0, 20);
+                }
+                break;
+            }
+            case SPECTRAL_TYPE_IMMOLATE:
+            {
+                int destroy_count = MIN(5, g_game_state.hand.card_count);
+                for (int i = 0; i < destroy_count; i++)
+                {
+                    automated_event_remove_card_from_hand_and_deck(game_util_rand(0, g_game_state.hand.card_count - 1));
+                }
+                g_game_state.wealth += 20;
+                event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, -1, 0, 0, 20);
+                break;
+            }
+            case SPECTRAL_TYPE_ANKH:
+            {
+                if (g_game_state.jokers.joker_count > 0)
+                {
+                    int joker_index = game_util_rand(0, g_game_state.jokers.joker_count - 1);
+                    struct Joker kept_joker = g_game_state.jokers.jokers[joker_index];
+                    struct Joker copy_joker = kept_joker;
+                    if (copy_joker.edition == CARD_EDITION_NEGATIVE) copy_joker.edition = CARD_EDITION_BASE;
+
+                    g_game_state.jokers.jokers[0] = kept_joker;
+                    g_game_state.jokers.joker_count = 1;
+                    g_game_state.jokers.negative_count = kept_joker.edition == CARD_EDITION_NEGATIVE ? 1 : 0;
+
+                    if (copy_joker.edition == CARD_EDITION_NEGATIVE || game_util_has_room_in_jokers())
+                    {
+                        g_game_state.jokers.jokers[1] = copy_joker;
+                        game_init_draw_object(&(g_game_state.jokers.jokers[1].draw));
+                        game_set_object_off_screen(&(g_game_state.jokers.jokers[1].draw));
+                        g_game_state.jokers.joker_count++;
+                        if (copy_joker.edition == CARD_EDITION_NEGATIVE) g_game_state.jokers.negative_count++;
+                    }
+
+                    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_JOKER, 0, 0, 0, 20);
+                }
+                break;
+            }
+            case SPECTRAL_TYPE_CRYPTID:
+            {
+                struct Card *source_card = NULL;
+                for (int i = 0; i < g_game_state.hand.card_count; i++)
+                {
+                    if (g_game_state.hand.cards[i]->selected)
+                    {
+                        source_card = g_game_state.hand.cards[i];
+                        g_game_state.hand.cards[i]->selected = false;
+                        break;
+                    }
+                }
+
+                if (source_card)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        struct Card *card = game_set_new_card();
+                        *card = *source_card;
+                        card->selected = false;
+                        game_init_draw_object(&(card->draw));
+                        game_set_object_off_screen(&(card->draw));
+                        game_add_card_to_full_deck(card);
+                        game_add_card_to_hand(card);
+                    }
+                    g_game_state.selected_cards_count = 0;
+                    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, -1, 0, 0, 20);
+                }
+                break;
+            }
+            case SPECTRAL_TYPE_BLACK_HOLE:
+            {
+                for (int i = 1; i < GAME_POKER_HAND_COUNT; i++)
+                {
+                    int planet_type = game_util_get_planet_type_of_poker_hand(i);
+                    if (planet_type < 0) continue;
+                    g_game_state.poker_hand_base_chips[i] += g_planet_types[planet_type].chips;
+                    g_game_state.poker_hand_base_mult[i] += g_planet_types[planet_type].mult;
+                    g_game_state.poker_hand_level[i]++;
+                }
+                g_game_state.five_of_a_kind_enabled = true;
+                g_game_state.flush_house_enabled = true;
+                g_game_state.flush_five_enabled = true;
+                break;
+            }
+        }
+
+        game_set_card_hand_positions();
+    }
+
+    AUTO_EVENT_STAGE_WAIT(21)
+
+    AUTO_EVENT_STAGE()
+    {
+        automated_event_remove_used_spectral();
+    }
+
+    AUTO_EVENT_STAGE_WAIT(10)
+
+    AUTO_EVENT_STAGE()
+    {
+        automated_event_finish_used_spectral();
+    }
+
+    AUTO_EVENT_END()
+
+    return true;
+}
 
 bool automated_event_use_tarot()
 {
@@ -3008,6 +3448,7 @@ bool automated_event_open_booster()
 
     AUTO_EVENT_STAGE()
     {
+        audio_play_sfx(AUDIO_SFX_WHOOSH);
         g_game_state.wealth -= game_util_get_booster_price(&(g_game_state.shop.boosters[g_game_state.highlighted_item].booster));
         
         game_util_copy_deck(&g_game_state.full_deck, &g_game_state.current_deck);

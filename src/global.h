@@ -452,6 +452,47 @@ struct Tarot
     int edition;
 };
 
+#define SPECTRAL_TYPE_FAMILIAR      0
+#define SPECTRAL_TYPE_GRIM          1
+#define SPECTRAL_TYPE_INCANTATION   2
+#define SPECTRAL_TYPE_TALISMAN      3
+#define SPECTRAL_TYPE_AURA          4
+#define SPECTRAL_TYPE_WRAITH        5
+#define SPECTRAL_TYPE_SIGIL         6
+#define SPECTRAL_TYPE_OUIJA         7
+#define SPECTRAL_TYPE_ECTOPLASM     8
+#define SPECTRAL_TYPE_IMMOLATE      9
+#define SPECTRAL_TYPE_ANKH          10
+#define SPECTRAL_TYPE_DEJA_VU       11
+#define SPECTRAL_TYPE_HEX           12
+#define SPECTRAL_TYPE_TRANCE        13
+#define SPECTRAL_TYPE_MEDIUM        14
+#define SPECTRAL_TYPE_CRYPTID       15
+#define SPECTRAL_TYPE_SOUL          16
+#define SPECTRAL_TYPE_BLACK_HOLE    17
+
+#define SPECTRAL_TYPE_COUNT         18
+
+#define HINT_SPECTRAL_TYPE_LENGTH   4
+
+struct SpectralType
+{
+    uint8_t type;
+    const char *name;
+    int min_targets, max_targets;
+    int u, v;
+    const char *hint_lines[HINT_SPECTRAL_TYPE_LENGTH];
+};
+
+extern struct SpectralType g_spectral_types[SPECTRAL_TYPE_COUNT];
+
+struct Spectral
+{
+    struct DrawObject draw;
+    uint8_t type;
+    int edition;
+};
+
 #define BOOSTER_PACK_TYPE_STANDARD  0
 #define BOOSTER_PACK_TYPE_ARCANA    1
 #define BOOSTER_PACK_TYPE_CELESTIAL 2
@@ -557,7 +598,8 @@ enum ItemType
     ITEM_TYPE_JOKER,
     ITEM_TYPE_CARD,
     ITEM_TYPE_TAROT,
-    ITEM_TYPE_PLANET
+    ITEM_TYPE_PLANET,
+    ITEM_TYPE_SPECTRAL
 };
 
 #define MAX_CONSUMABLES 100
@@ -568,6 +610,7 @@ struct Consumables
         enum ItemType type;
         struct Planet planet;
         struct Tarot tarot;
+        struct Spectral spectral;
     } items[MAX_CONSUMABLES];
     int item_count;
 };
@@ -584,6 +627,7 @@ struct Item
         struct Card card;
         struct Planet planet;
         struct Tarot tarot;
+        struct Spectral spectral;
     } info;
 };
 
@@ -779,10 +823,13 @@ int game_util_get_first_shop_single_index();
 int game_util_get_new_joker_type(int excluded_joker_types[], int excluded_joker_types_count, bool only_commons);
 int game_util_get_new_tarot_type(int excluded_tarot_types[], int excluded_tarot_types_count);
 int game_util_get_new_planet_type(int excluded_planet_types[], int excluded_planet_types_count);
+int game_util_get_new_spectral_type(int excluded_spectral_types[], int excluded_spectral_types_count, bool include_hidden);
 int game_util_get_planet_buy_price(struct Planet *planet);
 int game_util_get_planet_sell_price(struct Planet *planet);
 int game_util_get_tarot_buy_price(struct Tarot *tarot);
 int game_util_get_tarot_sell_price(struct Tarot *tarot);
+int game_util_get_spectral_buy_price(struct Spectral *spectral);
+int game_util_get_spectral_sell_price(struct Spectral *spectral);
 int game_util_get_reroll_cost();
 bool game_util_can_buy(float price);
 int game_util_get_default_focus_zone();
@@ -797,6 +844,7 @@ bool game_util_has_scoring_cards_rank(int rank);
 void game_init_joker(struct Joker *joker);
 void game_init_tarot(struct Tarot *tarot, int type, int edition);
 void game_init_planet(struct Planet *planet, int type, int edition);
+void game_init_spectral(struct Spectral *spectral, int type, int edition);
 float game_util_get_item_position(int i, int item_count, float start_x, float width, float item_width);
 int game_util_get_first_shop_booster_index();
 int game_util_get_first_shop_item_index();
@@ -808,6 +856,7 @@ void game_util_get_new_booster_pack(int *type, int *size);
 void game_util_get_joker_hint_value(struct Joker *joker, char *dst);
 void game_util_get_tarot_hint_value(struct Tarot *tarot, char *dst);
 bool game_util_can_tarot_be_used(int type);
+bool game_util_can_spectral_be_used(int type);
 bool game_util_has_room_in_consumables();
 bool game_util_has_room_in_jokers();
 int game_util_get_card_original_chips(struct Card *card);
@@ -845,8 +894,9 @@ int game_util_get_random_booster_card_edition();
 #define AUTOMATED_EVENT_CEREMONIAL_DAGGER   16
 #define AUTOMATED_EVENT_OPEN_BOOSTER        17
 #define AUTOMATED_EVENT_ADD_BOOSTER_CARD    18
+#define AUTOMATED_EVENT_USE_SPECTRAL        19
 
-#define AUTOMATED_EVENT_COUNT               19
+#define AUTOMATED_EVENT_COUNT               20
 
 void automated_event_set(int event_id, int num_params, ...);
 void automated_event_push(int event_id, int num_params, ...);
@@ -1020,6 +1070,21 @@ int audio_load_ogg_from_archive(char *filename);
 void audio_play_ogg(int ogg_id, float speed);
 void audio_stop();
 void audio_destroy_ogg(int ogg_id);
+int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume);
+void audio_play_sfx(int sfx_id);
+void audio_destroy_sfx();
+
+#define AUDIO_SFX_BUTTON      0
+#define AUDIO_SFX_CANCEL      1
+#define AUDIO_SFX_HIGHLIGHT   2
+#define AUDIO_SFX_CARD        3
+#define AUDIO_SFX_CHIPS       4
+#define AUDIO_SFX_MULT        5
+#define AUDIO_SFX_COIN        6
+#define AUDIO_SFX_TAROT       7
+#define AUDIO_SFX_WHOOSH      8
+#define AUDIO_SFX_WIN         9
+#define AUDIO_SFX_COUNT       10
 
 
 // GRAPHICS
@@ -1150,6 +1215,3 @@ enum IniTokenType ini_read_token(char *buffer, int buffer_size);
 #define GAME_CHANCE_COMMON_JOKER        70  // 70%
 #define GAME_CHANCE_UNCOMMON_JOKER      25  // 25%
 #define GAME_CHANCE_RARE_JOKER           5  //  5%
-
-
-

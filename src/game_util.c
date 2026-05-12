@@ -663,6 +663,42 @@ int game_util_get_new_planet_type(int excluded_planet_types[], int excluded_plan
     return possible_planet[rand()%possible_planet_count];
 }
 
+int game_util_get_new_spectral_type(int excluded_spectral_types[], int excluded_spectral_types_count, bool include_hidden)
+{
+    if (include_hidden)
+    {
+        if (random_int(1, 1000) > 997) return SPECTRAL_TYPE_SOUL;
+        if (random_int(1, 1000) > 997) return SPECTRAL_TYPE_BLACK_HOLE;
+    }
+
+    int possible_spectral[SPECTRAL_TYPE_COUNT];
+    int possible_spectral_count = 0;
+
+    for (int i = 0; i < SPECTRAL_TYPE_COUNT; i++)
+    {
+        if (i == SPECTRAL_TYPE_SOUL || i == SPECTRAL_TYPE_BLACK_HOLE) continue;
+
+        bool skip = false;
+        for (int j = 0; j < excluded_spectral_types_count; j++)
+        {
+            if (excluded_spectral_types[j] == i)
+            {
+                skip = true;
+                break;
+            }
+        }
+
+        if (!skip)
+        {
+            possible_spectral[possible_spectral_count++] = i;
+        }
+    }
+
+    if (possible_spectral_count == 0) return SPECTRAL_TYPE_INCANTATION;
+
+    return possible_spectral[rand()%possible_spectral_count];
+}
+
 int game_util_get_planet_buy_price(struct Planet *planet)
 {
     return 3;
@@ -681,6 +717,16 @@ int game_util_get_tarot_buy_price(struct Tarot *tarot)
 int game_util_get_tarot_sell_price(struct Tarot *tarot)
 {
     return 1;
+}
+
+int game_util_get_spectral_buy_price(struct Spectral *spectral)
+{
+    return 4;
+}
+
+int game_util_get_spectral_sell_price(struct Spectral *spectral)
+{
+    return 2;
 }
 
 int game_util_get_reroll_cost()
@@ -1034,6 +1080,35 @@ bool game_util_can_tarot_be_used(int type)
     if (tarot_type->min_targets > 0 && tarot_type->max_targets && (g_game_state.selected_cards_count < tarot_type->min_targets || g_game_state.selected_cards_count > tarot_type->max_targets)) return false;
     if (type == TAROT_TYPE_JUDGEMENT && !game_util_has_room_in_jokers()) return false; // TODO: Account for negatives
     if (type == TAROT_TYPE_FOOL && g_game_state.last_used_consumable_item_type == -1) return false;
+    return true;
+}
+
+bool game_util_can_spectral_be_used(int type)
+{
+    struct SpectralType *spectral_type = &g_spectral_types[type];
+    if (spectral_type->min_targets > 0 && spectral_type->max_targets &&
+        (g_game_state.selected_cards_count < spectral_type->min_targets ||
+         g_game_state.selected_cards_count > spectral_type->max_targets)) return false;
+
+    if ((type == SPECTRAL_TYPE_FAMILIAR ||
+         type == SPECTRAL_TYPE_GRIM ||
+         type == SPECTRAL_TYPE_INCANTATION ||
+         type == SPECTRAL_TYPE_IMMOLATE ||
+         type == SPECTRAL_TYPE_SIGIL ||
+         type == SPECTRAL_TYPE_OUIJA) && g_game_state.hand.card_count <= 0) return false;
+
+    if ((type == SPECTRAL_TYPE_WRAITH || type == SPECTRAL_TYPE_SOUL) && !game_util_has_room_in_jokers()) return false;
+    if ((type == SPECTRAL_TYPE_ANKH || type == SPECTRAL_TYPE_HEX || type == SPECTRAL_TYPE_ECTOPLASM) && g_game_state.jokers.joker_count == 0) return false;
+
+    if (type == SPECTRAL_TYPE_HEX || type == SPECTRAL_TYPE_ECTOPLASM)
+    {
+        for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+        {
+            if (g_game_state.jokers.jokers[i].edition == CARD_EDITION_BASE) return true;
+        }
+        return false;
+    }
+
     return true;
 }
 

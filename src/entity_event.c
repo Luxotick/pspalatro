@@ -429,7 +429,13 @@ void event_func_arrange_cards(int index)
         {
             for(int i = 0; i < g_game_state.consumables.item_count; i++)
             {
-                struct DrawObject *draw = (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET ? &(g_game_state.consumables.items[i].planet.draw) : &(g_game_state.consumables.items[i].tarot.draw));
+                struct DrawObject *draw = NULL;
+                if (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET)
+                    draw = &(g_game_state.consumables.items[i].planet.draw);
+                else if (g_game_state.consumables.items[i].type == ITEM_TYPE_TAROT)
+                    draw = &(g_game_state.consumables.items[i].tarot.draw);
+                else
+                    draw = &(g_game_state.consumables.items[i].spectral.draw);
                 draw->x = lerp(draw->initial_x, draw->final_x, event->duration == 0 ? 0.0f : ((float)event->current_time / (float)event->duration));
                 draw->y = lerp(draw->initial_y, draw->final_y, event->duration == 0 ? 0.0f : ((float)event->current_time / (float)event->duration));
             }

@@ -4,3 +4,4 @@ pspalatro.elf
 Balatro.exe
 *.o
 .vscode/
+balatro_exe_dump/
