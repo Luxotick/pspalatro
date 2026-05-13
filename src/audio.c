@@ -58,8 +58,16 @@ struct AudioSfxChannel
     int position;
 };
 
+struct AudioFlameChannel
+{
+    int position;
+    float volume;
+    float target_volume;
+};
+
 struct AudioSfx g_audio_sfx[AUDIO_SFX_COUNT];
 volatile struct AudioSfxChannel g_audio_sfx_channels[AUDIO_SFX_CHANNELS];
+volatile struct AudioFlameChannel g_audio_flame_channel;
 
 static short audio_clamp_sample(int sample)
 {
@@ -80,7 +88,7 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
         return;
     }
 
-    if (g_audio_buffer.ogg_id > -1)
+    if (g_audio_buffer.ogg_id > -1 && !g_debug_info.force_score_flames)
     {
         if (g_audio_buffer.written > 0)
         {
@@ -129,6 +137,29 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
             out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * sfx->volume));
         }
     }
+
+    struct AudioSfx *flame_sfx = &g_audio_sfx[AUDIO_SFX_FLAME];
+    if (flame_sfx->in_use && flame_sfx->sample_count > 0 &&
+        (g_audio_flame_channel.volume > 0.001f || g_audio_flame_channel.target_volume > 0.001f))
+    {
+        float volume = g_audio_flame_channel.volume;
+        float target = g_audio_flame_channel.target_volume;
+        float volume_step = (target - volume) / (float)sample_count;
+        int position = g_audio_flame_channel.position;
+
+        for (int i = 0; i < sample_count; i++)
+        {
+            if (position >= flame_sfx->sample_count) position = 0;
+
+            volume += volume_step;
+            struct sample_t sample = flame_sfx->samples[position++];
+            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * flame_sfx->volume * volume));
+            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * flame_sfx->volume * volume));
+        }
+
+        g_audio_flame_channel.volume = volume;
+        g_audio_flame_channel.position = position;
+    }
 }
 
 void audio_init()
@@ -153,6 +184,10 @@ void audio_init()
     {
         g_audio_sfx_channels[i].active = false;
     }
+
+    g_audio_flame_channel.position = 0;
+    g_audio_flame_channel.volume = 0.0f;
+    g_audio_flame_channel.target_volume = 0.0f;
 }
 char temp_buffer[AUDIO_BUFFER_SIZE];
 
@@ -389,7 +424,7 @@ int audio_load_ogg_from_archive(char *filename)
     return ogg_id;
 }
 
-int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
+int audio_load_sfx_from_archive_limited(int sfx_id, char *filename, float volume, float seconds)
 {
     if (sfx_id < 0 || sfx_id >= AUDIO_SFX_COUNT) return -1;
 
@@ -404,7 +439,13 @@ int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
         return -1;
     }
 
-    struct sample_t *samples = malloc(total_pcm * sizeof(struct sample_t));
+    long sample_limit = total_pcm;
+    if (seconds > 0.0f && info->rate > 0)
+    {
+        sample_limit = MIN(total_pcm, (long)((float)info->rate * seconds));
+    }
+
+    struct sample_t *samples = malloc(sample_limit * sizeof(struct sample_t));
     if (!samples)
     {
         audio_destroy_ogg(ogg_id);
@@ -413,14 +454,14 @@ int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
 
     int current_section = 0;
     long total_samples = 0;
-    while (total_samples < total_pcm)
+    while (total_samples < sample_limit)
     {
         long ret = ov_read(&(g_ogg_files[ogg_id].vorbis_file), temp_buffer, AUDIO_BUFFER_SIZE, 0, 2, 1, &current_section);
         if (ret <= 0) break;
 
         short *decoded = (short *)temp_buffer;
         int frame_count = ret / (sizeof(short) * info->channels);
-        for (int i = 0; i < frame_count && total_samples < total_pcm; i++)
+        for (int i = 0; i < frame_count && total_samples < sample_limit; i++)
         {
             if (info->channels == 1)
             {
@@ -455,6 +496,11 @@ int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
     g_audio_sfx[sfx_id].in_use = true;
 
     return sfx_id;
+}
+
+int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume)
+{
+    return audio_load_sfx_from_archive_limited(sfx_id, filename, volume, 0.0f);
 }
 
 void audio_play_ogg(int ogg_id, float speed)
@@ -518,12 +564,28 @@ void audio_play_sfx(int sfx_id)
     g_audio_sfx_channels[channel_index].active = true;
 }
 
+void audio_set_score_flame_intensity(float intensity)
+{
+    if (!g_settings.audio)
+    {
+        g_audio_flame_channel.target_volume = 0.0f;
+        return;
+    }
+
+    float target_volume = CLAMP(intensity / 4.0f, 0.0f, 1.0f) * 2.35f;
+    g_audio_flame_channel.target_volume = target_volume;
+}
+
 void audio_destroy_sfx()
 {
     for (int i = 0; i < AUDIO_SFX_CHANNELS; i++)
     {
         g_audio_sfx_channels[i].active = false;
     }
+
+    g_audio_flame_channel.target_volume = 0.0f;
+    g_audio_flame_channel.volume = 0.0f;
+    g_audio_flame_channel.position = 0;
 
     for (int i = 0; i < AUDIO_SFX_COUNT; i++)
     {

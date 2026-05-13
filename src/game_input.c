@@ -1177,8 +1177,64 @@ void game_input_update_run_info_close(bool no_input)
     }
 }
 
+bool game_input_debug_update_seal()
+{
+    if (g_game_state.stage != GAME_STAGE_INGAME ||
+        g_game_state.sub_stage != GAME_SUBSTAGE_INGAME_PICK_HAND ||
+        g_game_state.hand.card_count <= 0)
+    {
+        return false;
+    }
+
+    if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_HAND)
+    {
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_HAND;
+        g_game_state.highlighted_item = 0;
+    }
+
+    if (g_game_state.highlighted_item < 0 || g_game_state.highlighted_item >= g_game_state.hand.card_count)
+    {
+        g_game_state.highlighted_item = 0;
+    }
+
+    struct Card *card = g_game_state.hand.cards[g_game_state.highlighted_item];
+    if (input_was_button_pressed(INPUT_BUTTON_SQUARE))
+    {
+        card->seal = (card->seal + 1) % CARD_SEAL_COUNT;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        card->seal = CARD_SEAL_NONE;
+    }
+    else
+    {
+        return false;
+    }
+
+    event_add_pop_item(&(card->draw), 18);
+    event_add_shake_item(&(card->draw), 20);
+    audio_play_sfx(AUDIO_SFX_BUTTON);
+    return true;
+}
+
 void game_input_update(bool no_input)
 {
+    if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
+        input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
+        input_was_button_pressed(INPUT_BUTTON_TRIANGLE))
+    {
+        g_debug_info.force_score_flames = !g_debug_info.force_score_flames;
+        audio_play_sfx(AUDIO_SFX_BUTTON);
+        return;
+    }
+
+    if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
+        input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
+        game_input_debug_update_seal())
+    {
+        return;
+    }
+
     // Start Tusu ile Pause (no_input dahi olsa eger kart vs. animasyonu yoksa)
     if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_PAUSE_MENU &&
         g_game_state.stage != GAME_STAGE_PAUSE_MENU)
