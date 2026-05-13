@@ -36,6 +36,7 @@ void load_audio_sfx()
     audio_load_sfx_from_archive(AUDIO_SFX_TAROT, "resources/sounds/tarot1.ogg", 0.65f);
     audio_load_sfx_from_archive(AUDIO_SFX_WHOOSH, "resources/sounds/whoosh1.ogg", 0.55f);
     audio_load_sfx_from_archive(AUDIO_SFX_WIN, "resources/sounds/win.ogg", 0.75f);
+    audio_load_sfx_from_archive_limited(AUDIO_SFX_FLAME, "resources/sounds/ambientFire2.ogg", 1.75f, 4.5f);
 }
 
 bool init_more_stuff()

@@ -118,6 +118,8 @@ extern const char *g_edition_hint[CARD_EDITION_COUNT];
 #define CARD_SEAL_BLUE      3
 #define CARD_SEAL_PURPLE    4
 
+#define CARD_SEAL_COUNT     5
+
 struct DrawObject
 {
     float x, y;
@@ -136,6 +138,7 @@ struct DrawObject
 struct DebugInfo
 {
     int audio_wait_read, audio_wait_write;
+    bool force_score_flames;
 };
 
 extern struct DebugInfo g_debug_info;
@@ -1072,7 +1075,9 @@ void audio_play_ogg(int ogg_id, float speed);
 void audio_stop();
 void audio_destroy_ogg(int ogg_id);
 int audio_load_sfx_from_archive(int sfx_id, char *filename, float volume);
+int audio_load_sfx_from_archive_limited(int sfx_id, char *filename, float volume, float seconds);
 void audio_play_sfx(int sfx_id);
+void audio_set_score_flame_intensity(float intensity);
 void audio_destroy_sfx();
 
 #define AUDIO_SFX_BUTTON      0
@@ -1085,7 +1090,8 @@ void audio_destroy_sfx();
 #define AUDIO_SFX_TAROT       7
 #define AUDIO_SFX_WHOOSH      8
 #define AUDIO_SFX_WIN         9
-#define AUDIO_SFX_COUNT       10
+#define AUDIO_SFX_FLAME       10
+#define AUDIO_SFX_COUNT       11
 
 
 // GRAPHICS

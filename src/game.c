@@ -1219,7 +1219,7 @@ void game_init_booster_items()
                 int enhancement = (rand() % (CARD_ENHANCEMENT_COUNT + 3)) - 3;
                 g_game_state.shop.booster_items[i].info.card.enhancement = MAX(0, enhancement);
                 g_game_state.shop.booster_items[i].info.card.extra_chips = 0;
-                g_game_state.shop.booster_items[i].info.card.seal = 0;
+                g_game_state.shop.booster_items[i].info.card.seal = (rand() % 100 < 20) ? (rand() % (CARD_SEAL_COUNT - 1) + 1) : CARD_SEAL_NONE;
                 g_game_state.shop.booster_items[i].info.card.selected = false;
             }
             break;

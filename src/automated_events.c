@@ -398,6 +398,7 @@ bool automated_event_score()
         event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_PLAYED, -1, 0, 0, MOVE_TIMESPAN);
         g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER] = 0;
         g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT] = 0;
+        AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
         g_automated_event->params[SCORE_PARAM_CURRENT_JOKER_FOR_CARD] = 0;
     }
 
@@ -649,6 +650,14 @@ bool automated_event_score()
         {
             AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 0, 0, 3, AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD), EVENT_CARD_LOCATION_PLAYED, -1)
         }
+        else if (card->seal == CARD_SEAL_RED && AUTO_EVENT_VAL(SCORE_PARAM_SCORING_CARD_REPEAT) > 0)
+        {
+            event_add_pop_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
+            event_add_show_number(0.0, AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD), EVENT_CARD_LOCATION_PLAYED, SCORE_NUMBER_AGAIN, VARIABLE_TIME(SCORE_TIMESPAN));
+            AUTO_EVENT_DEC(SCORE_PARAM_SCORING_CARD_REPEAT)
+            AUTO_EVENT_INC(SCORE_PARAM_HAND_CARD_REPEAT)
+            AUTO_EVENT_CALL(AUTOMATED_EVENT_WAIT, 1, VARIABLE_TIME(SCORE_TIMESPAN))
+        }
     }
 
     AUTO_EVENT_NAMED_STAGE(SCORE_CARD_JOKER) // Joker per card
@@ -881,15 +890,6 @@ bool automated_event_score()
 
     AUTO_EVENT_NAMED_STAGE(SCORE_NEXT_CARD) // Move to next card
     {
-        struct Card *card = g_game_state.played_hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD)];
-        if (card->seal == CARD_SEAL_RED && g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] == 0)
-        {
-            g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] = 1;
-            g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT]++;
-            event_add_shake_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
-            event_add_show_number(0.0, AUTO_EVENT_VAL(SCORE_PARAM_CURRENT_SCORING_CARD), EVENT_CARD_LOCATION_PLAYED, SCORE_NUMBER_AGAIN, VARIABLE_TIME(SCORE_TIMESPAN));
-        }
-
         if (g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT] > 0)
         {
             g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT]--;
@@ -897,15 +897,16 @@ bool automated_event_score()
         }
         else
         {
-            g_automated_event->params[SCORE_PARAM_SCORING_CARD_REPEAT] = 0;
             automated_event_score_init_jokers();
             g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER]++;
+            AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
             if (g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER] < g_game_state.scoring_card_count)
             {
                 AUTO_EVENT_GO_TO_STAGE(SCORE_ADD_CHIPS)
             }
             g_automated_event->params[SCORE_PARAM_HAND_CARD_COUNTER] = 0;
             g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] = 0;
+            AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
         }
     }
 
@@ -934,7 +935,7 @@ bool automated_event_score()
     {
         if (g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] >= g_game_state.jokers.joker_count)
         {
-            AUTO_EVENT_GO_TO_STAGE(SCORE_NEXT_CARD_HAND)
+            AUTO_EVENT_GO_TO_STAGE(SCORE_CHECK_HAND_SEALS)
         }
 
         struct Joker *joker = &(g_game_state.jokers.jokers[g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER]]);
@@ -970,6 +971,21 @@ bool automated_event_score()
         AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_CARD_JOKER)
     }
 
+    AUTO_EVENT_NAMED_STAGE(SCORE_CHECK_HAND_SEALS)
+    {
+        struct Card *card = g_game_state.hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_COUNTER)];
+        if (card->seal == CARD_SEAL_RED &&
+            AUTO_EVENT_VAL(SCORE_PARAM_SCORING_CARD_REPEAT) > 0 &&
+            AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_HAS_SCORED) > 0)
+        {
+            event_add_pop_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
+            event_add_show_number(0.0, AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_COUNTER), EVENT_CARD_LOCATION_HAND, SCORE_NUMBER_AGAIN, VARIABLE_TIME(SCORE_TIMESPAN));
+            AUTO_EVENT_DEC(SCORE_PARAM_SCORING_CARD_REPEAT)
+            AUTO_EVENT_INC(SCORE_PARAM_HAND_CARD_REPEAT)
+            AUTO_EVENT_CALL(AUTOMATED_EVENT_WAIT, 1, VARIABLE_TIME(SCORE_TIMESPAN))
+        }
+    }
+
     AUTO_EVENT_NAMED_STAGE(SCORE_NEXT_CARD_HAND) // Move to next hand card
     {
         g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] = 0;
@@ -982,6 +998,7 @@ bool automated_event_score()
         {
             automated_event_score_init_jokers();
             g_automated_event->params[SCORE_PARAM_HAND_CARD_COUNTER]++;
+            AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
             AUTO_EVENT_GO_TO_STAGE(SCORE_HAND)
         }
     }
@@ -1003,6 +1020,7 @@ bool automated_event_score()
                 g_automated_event->params[SCORE_PARAM_HAND_CARD_COUNTER] = 0;
                 g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] = 0;
                 automated_event_score_init_jokers();
+                AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
                 AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_2)
             }
         }
@@ -1351,7 +1369,7 @@ bool automated_event_score()
     {
         if (g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] >= g_game_state.jokers.joker_count)
         {
-            AUTO_EVENT_GO_TO_STAGE(SCORE_NEXT_CARD_HAND_2)
+            AUTO_EVENT_GO_TO_STAGE(SCORE_CHECK_HAND_SEALS_2)
         }
 
         g_automated_event->params[SCORE_PARAM_HAND_CARD_REPEAT] = 0;
@@ -1388,11 +1406,50 @@ bool automated_event_score()
         AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_CARD_JOKER_2)
     }
 
+    AUTO_EVENT_NAMED_STAGE(SCORE_CHECK_HAND_SEALS_2)
+    {
+        struct Card *card = g_game_state.hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_COUNTER)];
+        if (card->seal == CARD_SEAL_BLUE)
+        {
+            if (game_util_has_room_in_consumables())
+            {
+                int planet_type = game_util_get_planet_type_of_poker_hand(g_game_state.current_poker_hand);
+                if (planet_type >= 0)
+                {
+                    g_game_state.consumables.items[g_game_state.consumables.item_count].type = ITEM_TYPE_PLANET;
+                    game_init_planet(&(g_game_state.consumables.items[g_game_state.consumables.item_count].planet), planet_type, CARD_EDITION_BASE);
+                    game_set_object_off_screen(&(g_game_state.consumables.items[g_game_state.consumables.item_count].planet.draw));
+                    g_game_state.consumables.item_count++;
+                    event_add_pop_item(&(card->draw), 20);
+                    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_CONSUMABLES, 0, 0, 0, 20);
+                    AUTO_EVENT_CALL(AUTOMATED_EVENT_WAIT, 1, 20)
+                }
+            }
+            g_automated_event->params[SCORE_PARAM_HAND_CARD_HAS_SCORED] = 1;
+        }
+    }
+
+    AUTO_EVENT_NAMED_STAGE(SCORE_CHECK_HAND_RED_SEAL_2)
+    {
+        struct Card *card = g_game_state.hand.cards[AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_COUNTER)];
+        if (card->seal == CARD_SEAL_RED &&
+            AUTO_EVENT_VAL(SCORE_PARAM_SCORING_CARD_REPEAT) > 0 &&
+            AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_HAS_SCORED) > 0)
+        {
+            event_add_pop_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
+            event_add_show_number(0.0, AUTO_EVENT_VAL(SCORE_PARAM_HAND_CARD_COUNTER), EVENT_CARD_LOCATION_HAND, SCORE_NUMBER_AGAIN, VARIABLE_TIME(SCORE_TIMESPAN));
+            AUTO_EVENT_DEC(SCORE_PARAM_SCORING_CARD_REPEAT)
+            AUTO_EVENT_INC(SCORE_PARAM_HAND_CARD_REPEAT)
+            AUTO_EVENT_CALL(AUTOMATED_EVENT_WAIT, 1, VARIABLE_TIME(SCORE_TIMESPAN))
+        }
+    }
+
     AUTO_EVENT_NAMED_STAGE(SCORE_NEXT_CARD_HAND_2) // Move to next hand card
     {
         automated_event_score_init_jokers();
         g_automated_event->params[SCORE_PARAM_HAND_CARD_COUNTER]++;
         g_automated_event->params[SCORE_PARAM_HAND_JOKER_COUNTER] = 0;
+        AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
         AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_2)
     }
 
@@ -1747,7 +1804,9 @@ bool automated_event_discard()
             game_init_tarot(&(g_game_state.consumables.items[g_game_state.consumables.item_count].tarot), game_util_get_new_tarot_type(excluded_tarots, excluded_tarots_count), CARD_EDITION_BASE);
             game_set_object_off_screen(&(g_game_state.consumables.items[g_game_state.consumables.item_count].tarot.draw));
             g_game_state.consumables.item_count++;
-            event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_CONSUMABLES, 0, 0, 0, 10);
+            event_add_pop_item(&(g_game_state.hand.cards[g_automated_event->params[0]]->draw), 20);
+            event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_CONSUMABLES, 0, 0, 0, 20);
+            AUTO_EVENT_CALL(AUTOMATED_EVENT_WAIT, 1, 20)
         }
         g_game_state.hand.cards[g_automated_event->params[0]]->selected = false;
         game_discard_card(g_automated_event->params[0]);
@@ -3556,6 +3615,7 @@ bool automated_event_add_booster_card()
         struct Card *card = game_set_new_card();
         card->edition = g_game_state.shop.booster_items[g_game_state.highlighted_item].info.card.edition;
         card->enhancement = g_game_state.shop.booster_items[g_game_state.highlighted_item].info.card.enhancement;
+        card->seal = g_game_state.shop.booster_items[g_game_state.highlighted_item].info.card.seal;
         card->extra_chips = 0;
         card->rank = g_game_state.shop.booster_items[g_game_state.highlighted_item].info.card.rank;
         card->suit = g_game_state.shop.booster_items[g_game_state.highlighted_item].info.card.suit;

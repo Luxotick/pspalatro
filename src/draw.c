@@ -1084,6 +1084,11 @@ void game_draw_deck()
 
 bool game_draw_should_burn_score()
 {
+    if (g_debug_info.force_score_flames && g_game_state.stage == GAME_STAGE_INGAME)
+    {
+        return true;
+    }
+
     if (g_game_state.stage != GAME_STAGE_INGAME ||
         g_game_state.sub_stage != GAME_SUBSTAGE_INGAME_PICK_HAND ||
         g_game_state.current_poker_hand == GAME_POKER_HAND_NONE)
@@ -1095,34 +1100,74 @@ bool game_draw_should_burn_score()
     return hand_score > 0.0 && hand_score >= game_get_current_blind_score();
 }
 
-void game_draw_score_flames(float x, float y, float w, float h)
+float game_draw_get_score_flame_intensity()
 {
-    if (!game_draw_should_burn_score()) return;
+    if (!game_draw_should_burn_score()) return 0.0f;
 
-    // TODO: Replace this placeholder with a richer score-flame animation and
-    // short/faded ambientFire playback from the original assets.
-    graphics_set_no_texture();
-
-    int pulse = (g_time * 5) & 31;
-    int glow_alpha = 0x30 + (pulse < 16 ? pulse : 31 - pulse);
-    uint32_t glow_color = ((uint32_t)glow_alpha << 24) | 0x00004CFF;
-    graphics_draw_solid_quad(x - 2.0f, y - 2.0f, w + 4.0f, h + 4.0f, glow_color);
-
-    for (int i = 0; i < 12; i++)
+    if (g_debug_info.force_score_flames)
     {
-        float flame_x = x + 3.0f + i * ((w - 6.0f) / 12.0f);
-        float flame_w = 4.0f + (float)((i + g_time) & 1);
-        float flame_h = 5.0f + (float)((g_time * (i + 3) + i * 7) % 10);
-        float flame_y = y + h - flame_h + (float)((g_time + i) % 3);
-        uint32_t flame_color = (i & 1) ? 0xAA004CFF : 0x9900B3FF;
-        graphics_draw_solid_quad(flame_x, flame_y, flame_w, flame_h, flame_color);
+        return 1.5f + (float)((g_time / 16) % 4);
     }
 
-    for (int i = 0; i < 6; i++)
+    double hand_score = (double)g_game_state.current_base_chips * (double)g_game_state.current_base_mult;
+    float intensity = (float)(log(hand_score) / log(5.0) - 2.0);
+    return CLAMP(intensity, 0.35f, 5.5f);
+}
+
+void game_draw_score_flames(float x, float y, float w, float h, uint32_t colour_1, uint32_t colour_2)
+{
+    float intensity = game_draw_get_score_flame_intensity();
+    if (intensity <= 0.0f) return;
+
+    graphics_set_no_texture();
+
+    float max_flame_h = 7.0f + intensity * 2.0f;
+    float body_alpha = CLAMP(0.12f + intensity * 0.035f, 0.16f, 0.34f);
+
+    uint32_t body_colour = (colour_1 & 0x00FFFFFF) | ((uint32_t)(body_alpha * 255.0f) << 24);
+    graphics_draw_solid_quad(x, y - 2.0f, w, h + 2.0f, body_colour);
+
+    int cols = 18;
+    int rows = CLAMP(7 + (int)(intensity * 1.1f), 7, 13);
+    float cell_w = w / (float)cols;
+    float cell_h = max_flame_h / (float)rows;
+    float time = (float)g_time * (0.075f + intensity * 0.006f);
+
+    for (int cy = 0; cy < rows; cy++)
     {
-        float spark_x = x + 6.0f + (float)((g_time * (i + 5) + i * 23) % (int)(w - 12.0f));
-        float spark_y = y + 3.0f + (float)((g_time * (i + 2) + i * 11) % (int)(h - 6.0f));
-        graphics_draw_solid_quad(spark_x, spark_y, 2.0f, 2.0f, 0xCC49B3EF);
+        float row_t = (float)cy / (float)(rows - 1);
+        for (int cx = 0; cx < cols; cx++)
+        {
+            float col_t = (float)cx / (float)(cols - 1);
+            float centered = fabsf(col_t - 0.5f) * 2.0f;
+            float side_falloff = CLAMP(1.0f - centered * 0.75f, 0.0f, 1.0f);
+            float n1 = 0.5f + 0.5f * sinf(time + col_t * 8.3f + (float)cy * 0.77f);
+            float n2 = 0.5f + 0.5f * cosf(time * 1.71f + col_t * 15.7f - (float)cy * 0.43f);
+            float noise = n1 * 0.65f + n2 * 0.35f;
+            float envelope = side_falloff * (0.52f + 0.48f * noise);
+            float flame_top = 0.08f + envelope * (0.58f + intensity * 0.035f);
+            float visible = row_t > (1.0f - flame_top);
+
+            if (visible)
+            {
+                float heat = CLAMP((row_t - (1.0f - flame_top)) / flame_top, 0.0f, 1.0f);
+                uint32_t flame_colour = (heat > 0.56f || noise > 0.72f) ? colour_2 : colour_1;
+                int alpha = (int)(120.0f + 115.0f * heat);
+                if (cy < 2) alpha = (int)((float)alpha * 0.75f);
+                uint32_t tile_colour = (flame_colour & 0x00FFFFFF) | ((uint32_t)CLAMP(alpha, 80, 235) << 24);
+                float px = x + (float)cx * cell_w;
+                float py = y - max_flame_h + (float)cy * cell_h + 2.0f;
+                graphics_draw_solid_quad(px, py, cell_w + 0.8f, cell_h + 0.8f, tile_colour);
+            }
+        }
+    }
+
+    int sparks = CLAMP((int)(intensity), 1, 5);
+    for (int i = 0; i < sparks; i++)
+    {
+        float spark_x = x + 2.0f + (float)((g_time * (i + 5) + i * 23) % (int)(w - 4.0f));
+        float spark_y = y - max_flame_h + (float)((g_time * (i + 2) + i * 11) % (int)(max_flame_h + h));
+        graphics_draw_solid_quad(spark_x, spark_y, 1.0f + (float)(i & 1), 1.0f + (float)((i + 1) & 1), colour_2);
     }
 }
 
@@ -1130,6 +1175,8 @@ void game_draw_left_info()
 {
     static int shop_anim = 0;
     char str[24];
+    float score_flame_intensity = game_draw_get_score_flame_intensity();
+    audio_set_score_flame_intensity(score_flame_intensity);
 
     graphics_set_no_texture();
     graphics_draw_quad(2, 2, DRAW_LEFT_INFO_WIDTH, SCREEN_HEIGHT - 4, 0, 0, 0, 0, COLOR_DARK_GREY);
@@ -1188,7 +1235,6 @@ void game_draw_left_info()
 
     graphics_set_no_texture();
     graphics_draw_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 30, 0, 0, 0, 0, COLOR_DARK_GREY_2);
-    game_draw_score_flames(4.0f, (float)y - 2.0f, DRAW_LEFT_INFO_WIDTH - 4.0f, 30.0f);
 
     graphics_draw_text(font_big, "Round Score", 6, y, 1.0f, COLOR_WHITE);    
     
@@ -1222,7 +1268,8 @@ void game_draw_left_info()
         int chip_dy = ((g_time * 5) % 5) - 2;
         int mult_dx = ((g_time * 7) % 5) - 2;
         int mult_dy = ((g_time * 11) % 5) - 2;
-        game_draw_score_flames(4.0f, (float)y - 3.0f, DRAW_LEFT_INFO_WIDTH - 4.0f, 18.0f);
+        game_draw_score_flames(6.0f, (float)y, 38.0f, 12.0f, 0xDDEF8700, 0xFF49B3EF);
+        game_draw_score_flames(56.0f, (float)y, 38.0f, 12.0f, 0xDD4040FF, 0xFF008FFF);
         graphics_draw_quad(6 + chip_dx, y + chip_dy, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_BLUE);
         graphics_draw_quad(56 + mult_dx, y + mult_dy, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_RED);
     }
