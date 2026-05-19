@@ -56,6 +56,7 @@ struct Settings
     int shop_booster_slots;
     bool audio;
     bool move_cards;
+    bool debug_tools;
     bool overclock;
     int ante_score_scaling;
     int speed;

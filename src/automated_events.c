@@ -1024,7 +1024,26 @@ bool automated_event_score()
                 AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_2)
             }
         }
+        AUTO_EVENT_GO_TO_STAGE(SCORE_JOKER_PRE_EDITION)
+    }
 
+    AUTO_EVENT_NAMED_STAGE(SCORE_JOKER_PRE_EDITION) // Joker Foil/Holographic editions score before the Joker ability
+    {
+        switch (g_game_state.jokers.jokers[AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER)].edition)
+        {
+            case CARD_EDITION_FOIL:
+                AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 50, 0, 0, 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
+                break;
+            case CARD_EDITION_HOLOGRAPHIC:
+                AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 10, 0, 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
+                break;
+            default:
+                break;
+        }
+    }
+
+    AUTO_EVENT_NAMED_STAGE(SCORE_JOKER_ABILITY) // Joker ability
+    {
         switch (game_util_get_joker_type(g_automated_event->params[SCORE_PARAM_FINAL_JOKER_COUNTER]))
         {
             case JOKER_TYPE_JOKER:
@@ -1313,16 +1332,10 @@ bool automated_event_score()
         }
     }
 
-    AUTO_EVENT_STAGE() // Joker Editions
+    AUTO_EVENT_NAMED_STAGE(SCORE_JOKER_POST_EDITION) // Joker Polychrome edition scores after the Joker ability
     {
         switch (g_game_state.jokers.jokers[AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER)].edition)
         {
-            case CARD_EDITION_FOIL:
-                AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 50, 0, 0, 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
-                break;
-            case CARD_EDITION_HOLOGRAPHIC:
-                AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 10, 0, 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
-                break;
             case CARD_EDITION_POLYCHROME:
                 AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 0, 150, 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
                 break;
@@ -2591,10 +2604,13 @@ bool automated_event_use_spectral()
                 {
                     if (g_game_state.hand.cards[i]->selected)
                     {
-                        int random_number = game_util_rand(0, 99);
-                        if (random_number < 50) g_game_state.hand.cards[i]->edition = CARD_EDITION_FOIL;
-                        else if (random_number < 85) g_game_state.hand.cards[i]->edition = CARD_EDITION_HOLOGRAPHIC;
-                        else g_game_state.hand.cards[i]->edition = CARD_EDITION_POLYCHROME;
+                        if (g_game_state.hand.cards[i]->edition == CARD_EDITION_BASE)
+                        {
+                            int random_number = game_util_rand(0, 99);
+                            if (random_number < 50) g_game_state.hand.cards[i]->edition = CARD_EDITION_FOIL;
+                            else if (random_number < 85) g_game_state.hand.cards[i]->edition = CARD_EDITION_HOLOGRAPHIC;
+                            else g_game_state.hand.cards[i]->edition = CARD_EDITION_POLYCHROME;
+                        }
                         g_game_state.hand.cards[i]->selected = false;
                         event_add_pop_item(&(g_game_state.hand.cards[i]->draw), 18);
                         event_add_shake_item(&(g_game_state.hand.cards[i]->draw), 20);

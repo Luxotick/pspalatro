@@ -13,6 +13,7 @@ struct Settings g_settings = {
     false,
     true,
     false,
+    false,
     2,
     1
 };
@@ -1671,6 +1672,12 @@ bool game_init_load_file_values()
                 token_type = ini_read_token(buffer, 128);
                 if (token_type != INI_TOKEN_VALUE) return false;
                 g_settings.move_cards = !(!strcmp(buffer, "false") || !strcmp(buffer, "0"));
+            }
+            else if (!strcmp(buffer, "debug_tools"))
+            {
+                token_type = ini_read_token(buffer, 128);
+                if (token_type != INI_TOKEN_VALUE) return false;
+                g_settings.debug_tools = !strcmp(buffer, "true") || !strcmp(buffer, "1");
             }
             else if (!strcmp(buffer, "overclock"))
             {

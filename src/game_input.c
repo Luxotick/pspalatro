@@ -1111,17 +1111,24 @@ void game_input_update_settings_value(int direction)
             g_settings.move_cards = !g_settings.move_cards;
             break;
         case 2:
-            g_settings.speed = CLAMP(g_settings.speed + direction, 1, 5);
+            g_settings.debug_tools = !g_settings.debug_tools;
+            if (!g_settings.debug_tools)
+            {
+                g_debug_info.force_score_flames = false;
+            }
             break;
         case 3:
+            g_settings.speed = CLAMP(g_settings.speed + direction, 1, 5);
+            break;
+        case 4:
             g_settings.ante_score_scaling = CLAMP(g_settings.ante_score_scaling + direction, 1, 3);
             g_game_state.ante_score_scaling = g_settings.ante_score_scaling - 1;
             break;
-        case 4:
+        case 5:
             g_settings.overclock = !g_settings.overclock;
             game_input_apply_overclock_setting();
             break;
-        case 5:
+        case 6:
             g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
             g_game_state.highlighted_item = 3;
             break;
@@ -1134,12 +1141,12 @@ void game_input_update_settings_menu(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_DOWN))
     {
-        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 6;
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 7;
     }
     else if (input_was_button_pressed(INPUT_BUTTON_UP))
     {
         if (g_game_state.highlighted_item == 0)
-            g_game_state.highlighted_item = 5;
+            g_game_state.highlighted_item = 6;
         else
             g_game_state.highlighted_item--;
     }
@@ -1179,6 +1186,8 @@ void game_input_update_run_info_close(bool no_input)
 
 bool game_input_debug_update_seal()
 {
+    if (!g_settings.debug_tools) return false;
+
     if (g_game_state.stage != GAME_STAGE_INGAME ||
         g_game_state.sub_stage != GAME_SUBSTAGE_INGAME_PICK_HAND ||
         g_game_state.hand.card_count <= 0)
@@ -1217,9 +1226,48 @@ bool game_input_debug_update_seal()
     return true;
 }
 
+bool game_input_debug_update_edition()
+{
+    if (!g_settings.debug_tools) return false;
+
+    if (g_game_state.stage != GAME_STAGE_INGAME ||
+        g_game_state.sub_stage != GAME_SUBSTAGE_INGAME_PICK_HAND ||
+        g_game_state.hand.card_count <= 0)
+    {
+        return false;
+    }
+
+    if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_HAND)
+    {
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_HAND;
+        g_game_state.highlighted_item = 0;
+    }
+
+    if (g_game_state.highlighted_item < 0 || g_game_state.highlighted_item >= g_game_state.hand.card_count)
+    {
+        g_game_state.highlighted_item = 0;
+    }
+
+    struct Card *card = g_game_state.hand.cards[g_game_state.highlighted_item];
+    if (input_was_button_pressed(INPUT_BUTTON_CROSS))
+    {
+        card->edition = (card->edition + 1) % CARD_EDITION_NEGATIVE;
+    }
+    else
+    {
+        return false;
+    }
+
+    event_add_pop_item(&(card->draw), 18);
+    event_add_shake_item(&(card->draw), 20);
+    audio_play_sfx(AUDIO_SFX_BUTTON);
+    return true;
+}
+
 void game_input_update(bool no_input)
 {
-    if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
+    if (g_settings.debug_tools &&
+        input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
         input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
         input_was_button_pressed(INPUT_BUTTON_TRIANGLE))
     {
@@ -1230,7 +1278,7 @@ void game_input_update(bool no_input)
 
     if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
         input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
-        game_input_debug_update_seal())
+        (game_input_debug_update_seal() || game_input_debug_update_edition()))
     {
         return;
     }

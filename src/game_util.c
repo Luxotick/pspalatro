@@ -1100,6 +1100,19 @@ bool game_util_can_spectral_be_used(int type)
     if ((type == SPECTRAL_TYPE_WRAITH || type == SPECTRAL_TYPE_SOUL) && !game_util_has_room_in_jokers()) return false;
     if ((type == SPECTRAL_TYPE_ANKH || type == SPECTRAL_TYPE_HEX || type == SPECTRAL_TYPE_ECTOPLASM) && g_game_state.jokers.joker_count == 0) return false;
 
+    if (type == SPECTRAL_TYPE_AURA)
+    {
+        for (int i = 0; i < g_game_state.hand.card_count; i++)
+        {
+            if (g_game_state.hand.cards[i]->selected &&
+                g_game_state.hand.cards[i]->edition == CARD_EDITION_BASE)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     if (type == SPECTRAL_TYPE_HEX || type == SPECTRAL_TYPE_ECTOPLASM)
     {
         for (int i = 0; i < g_game_state.jokers.joker_count; i++)

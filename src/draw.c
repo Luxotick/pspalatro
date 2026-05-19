@@ -520,6 +520,128 @@ void game_draw_get_oscillating_position(struct DrawObject *draw, float *x, float
     }
 }
 
+uint32_t game_draw_lerp_colour(uint32_t colour_a, uint32_t colour_b, float t)
+{
+    t = CLAMP(t, 0.0f, 1.0f);
+    int a_a = (colour_a >> 24) & 0xFF;
+    int r_a = colour_a & 0xFF;
+    int g_a = (colour_a >> 8) & 0xFF;
+    int b_a = (colour_a >> 16) & 0xFF;
+    int a_b = (colour_b >> 24) & 0xFF;
+    int r_b = colour_b & 0xFF;
+    int g_b = (colour_b >> 8) & 0xFF;
+    int b_b = (colour_b >> 16) & 0xFF;
+    int a = a_a + (int)((float)(a_b - a_a) * t);
+    int r = r_a + (int)((float)(r_b - r_a) * t);
+    int g = g_a + (int)((float)(g_b - g_a) * t);
+    int b = b_a + (int)((float)(b_b - b_a) * t);
+    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
+}
+
+void game_draw_card_effect_quad(float card_x, float card_y, float card_w, float card_h, float local_x, float local_y, float w, float h, uint32_t colour, float angle)
+{
+    float x = card_x + local_x;
+    float y = card_y + local_y;
+    float right = x + w;
+    float bottom = y + h;
+    float card_right = card_x + card_w;
+    float card_bottom = card_y + card_h;
+
+    if (x < card_x)
+    {
+        w -= card_x - x;
+        x = card_x;
+    }
+    if (y < card_y)
+    {
+        h -= card_y - y;
+        y = card_y;
+    }
+    if (right > card_right) w -= right - card_right;
+    if (bottom > card_bottom) h -= bottom - card_bottom;
+    if (w <= 0.0f || h <= 0.0f) return;
+
+    graphics_draw_rotated_quad(x, y, w, h, 0, 0, 0, 0, colour, angle);
+}
+
+void game_draw_edition_shader(int edition, float x, float y, float w, float h, float angle, float seed)
+{
+    if (edition == CARD_EDITION_BASE) return;
+
+    float time = (float)g_time * 0.035f + seed * 0.17f;
+    graphics_set_no_texture();
+
+    if (edition == CARD_EDITION_NEGATIVE)
+    {
+        graphics_draw_rotated_quad(x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f, 0, 0, 0, 0, 0x70453B34, angle);
+
+        for (int i = 0; i < 5; i++)
+        {
+            float phase = time + (float)i * 1.37f;
+            float px = 3.0f + fmodf((phase * 9.0f + (float)i * 13.0f), w - 10.0f);
+            uint32_t colour = (i & 1) ? 0x385E5EBC : 0x3838599A;
+            game_draw_card_effect_quad(x, y, w, h, px, 5.0f, 2.0f, h - 10.0f, colour, angle);
+        }
+        return;
+    }
+
+    if (edition == CARD_EDITION_FOIL)
+    {
+        float pulse = 0.5f + 0.5f * sinf(time * 1.8f);
+        uint32_t cool_tint = game_draw_lerp_colour(0x1AB6CAD8, 0x26FFFFFF, pulse);
+        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, cool_tint, angle);
+        graphics_draw_rotated_quad(x + 6.0f, y + 6.0f, w - 12.0f, h - 12.0f, 0, 0, 0, 0, 0x12FFFFFF, angle);
+        return;
+    }
+
+    if (edition == CARD_EDITION_HOLOGRAPHIC)
+    {
+        float pulse_a = 0.5f + 0.5f * sinf(time * 1.35f);
+        float pulse_b = 0.5f + 0.5f * cosf(time * 1.07f + 1.4f);
+        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x26FFC7EE, 0x2CE6F1FF, pulse_a), angle);
+        graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x18B6E9FF, 0x20FFDBF5, pulse_b), angle);
+
+        float pattern_left = 5.0f;
+        float pattern_top = 6.0f;
+        float pattern_w = w - 10.0f;
+        float pattern_h = h - 12.0f;
+        int cols = 5;
+        int rows = 8;
+        float cell_w = pattern_w / (float)cols;
+        float cell_h = pattern_h / (float)rows;
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < cols; col++)
+            {
+                float local_x = pattern_left + (float)col * cell_w;
+                float local_y = pattern_top + (float)row * cell_h;
+                float shimmer = 0.5f + 0.5f * sinf(time * 1.4f + (float)(row * 3 + col) * 0.73f);
+                uint32_t colour = game_draw_lerp_colour(0x18FFFFFF, 0x26FFB9F1, shimmer);
+                game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.45f, local_y, 1.0f, cell_h * 0.8f, colour, angle);
+                game_draw_card_effect_quad(x, y, w, h, local_x, local_y + cell_h * 0.45f, cell_w * 0.8f, 1.0f, colour, angle);
+                if (((row + col) & 1) == 0)
+                {
+                    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.20f, local_y + cell_h * 0.20f, 2.0f, 2.0f, 0x22FFFFFF, angle);
+                    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.65f, local_y + cell_h * 0.65f, 2.0f, 2.0f, 0x1C8DEBFF, angle);
+                }
+            }
+        }
+        graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x10FFFFFF, angle);
+        return;
+    }
+
+    if (edition == CARD_EDITION_POLYCHROME)
+    {
+        float pulse_a = 0.5f + 0.5f * sinf(time * 1.12f);
+        float pulse_b = 0.5f + 0.5f * sinf(time * 0.87f + 2.1f);
+        uint32_t rainbow_a = game_draw_lerp_colour(0x22FF4D72, 0x22FFE04D, pulse_a);
+        uint32_t rainbow_b = game_draw_lerp_colour(0x224DBDFF, 0x22B84DFF, pulse_b);
+        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, rainbow_a, angle);
+        graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, rainbow_b, angle);
+        graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x14FFFFFF, angle);
+    }
+}
+
 void game_draw_card(struct Card *card, struct DrawObject *draw_override)
 {
     struct DrawObject *draw = &card->draw;
@@ -535,6 +657,15 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
     y -= ((CARD_HEIGHT * draw->scale) - CARD_HEIGHT) / 2.0f;
     float w = CARD_WIDTH * draw->scale;
     float h = CARD_HEIGHT * draw->scale;
+
+    if (card->edition == CARD_EDITION_NEGATIVE)
+    {
+        graphics_flush_quads();
+        sceGuEnable(GU_COLOR_LOGIC_OP);
+        sceGuLogicalOp(GU_COPY_INVERTED);
+        sceGuEnable(GU_ALPHA_TEST);
+        sceGuAlphaFunc(GU_GREATER, 0, 0xFF);
+    }
 
     graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(x, y, w, h, g_enhancement_tex_coords[card->enhancement].x, g_enhancement_tex_coords[card->enhancement].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
@@ -553,11 +684,19 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
         }
     }
 
+    if (card->edition == CARD_EDITION_NEGATIVE)
+    {
+        graphics_flush_quads();
+        sceGuDisable(GU_ALPHA_TEST);
+        sceGuDisable(GU_COLOR_LOGIC_OP);
+    }
+
     if (card->edition != CARD_EDITION_BASE && card->edition != CARD_EDITION_NEGATIVE)
     {        
         graphics_set_texture(tex_editions, GRAPHICS_TEXTURE_FILTER_LINEAR);
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[card->edition].x, g_editions_tex_coords[card->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, card->draw.angle);
     }
+    game_draw_edition_shader(card->edition, x, y, w, h, card->draw.angle, card->draw.r);
 
     if (card->seal != CARD_SEAL_NONE)
     {
@@ -628,6 +767,7 @@ void game_draw_joker(struct Joker *joker)
         graphics_set_texture(tex_editions, GRAPHICS_TEXTURE_FILTER_LINEAR);
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[joker->edition].x, g_editions_tex_coords[joker->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, joker->draw.angle);
     }
+    game_draw_edition_shader(joker->edition, x, y, w, h, joker->draw.angle, joker->draw.r);
 }
 
 void game_draw_card_frame(struct DrawObject *draw)
@@ -1121,42 +1261,61 @@ void game_draw_score_flames(float x, float y, float w, float h, uint32_t colour_
 
     graphics_set_no_texture();
 
-    float max_flame_h = 7.0f + intensity * 2.0f;
-    float body_alpha = CLAMP(0.12f + intensity * 0.035f, 0.16f, 0.34f);
+    float max_flame_h = 9.0f + intensity * 2.4f;
+    float body_alpha = CLAMP(0.10f + intensity * 0.03f, 0.14f, 0.30f);
 
     uint32_t body_colour = (colour_1 & 0x00FFFFFF) | ((uint32_t)(body_alpha * 255.0f) << 24);
     graphics_draw_solid_quad(x, y - 2.0f, w, h + 2.0f, body_colour);
 
-    int cols = 18;
-    int rows = CLAMP(7 + (int)(intensity * 1.1f), 7, 13);
+    int cols = 24;
+    int rows = CLAMP(10 + (int)(intensity * 1.3f), 10, 18);
     float cell_w = w / (float)cols;
-    float cell_h = max_flame_h / (float)rows;
-    float time = (float)g_time * (0.075f + intensity * 0.006f);
+    float total_h = max_flame_h + h * 0.65f;
+    float cell_h = total_h / (float)rows;
+    float time = (float)g_time * 0.045f;
+    float scale_fac = 7.5f + 3.0f / (2.0f + 2.0f * intensity);
+    float speed = 1.0f + 0.35f * sinf(time * 0.71f + x * 0.09f);
 
     for (int cy = 0; cy < rows; cy++)
     {
-        float row_t = (float)cy / (float)(rows - 1);
         for (int cx = 0; cx < cols; cx++)
         {
-            float col_t = (float)cx / (float)(cols - 1);
-            float centered = fabsf(col_t - 0.5f) * 2.0f;
-            float side_falloff = CLAMP(1.0f - centered * 0.75f, 0.0f, 1.0f);
-            float n1 = 0.5f + 0.5f * sinf(time + col_t * 8.3f + (float)cy * 0.77f);
-            float n2 = 0.5f + 0.5f * cosf(time * 1.71f + col_t * 15.7f - (float)cy * 0.43f);
-            float noise = n1 * 0.65f + n2 * 0.35f;
-            float envelope = side_falloff * (0.52f + 0.48f * noise);
-            float flame_top = 0.08f + envelope * (0.58f + intensity * 0.035f);
-            float visible = row_t > (1.0f - flame_top);
+            float uv_x = ((float)cx + 0.5f) / (float)cols - 0.5f;
+            float uv_y = ((float)cy + 0.5f) / (float)rows - 0.5f;
+            float floored_x = floorf(uv_x * 60.0f) / 60.0f;
+            float floored_y = floorf(uv_y * 60.0f) / 60.0f;
+            float warped_x = floored_x + floored_x * 0.01f * sinf(-1.123f * floored_x + 0.2f * time) * cosf(5.3332f * floored_y + time * 0.931f);
+            float warped_y = floored_y + floored_y * 0.01f * sinf(-1.123f * floored_x + 0.2f * time) * cosf(5.3332f * floored_y + time * 0.931f);
+            float sv_x = warped_x * scale_fac;
+            float sv_y = warped_y * scale_fac + time * 4.0f + x * 0.037f;
+            float sv2_x = 0.0f;
+            float sv2_y = 0.0f;
 
-            if (visible)
+            for (int i = 0; i < 5; i++)
             {
-                float heat = CLAMP((row_t - (1.0f - flame_top)) / flame_top, 0.0f, 1.0f);
-                uint32_t flame_colour = (heat > 0.56f || noise > 0.72f) ? colour_2 : colour_1;
-                int alpha = (int)(120.0f + 115.0f * heat);
-                if (cy < 2) alpha = (int)((float)alpha * 0.75f);
+                float len = sqrtf(sv_x * sv_x + sv_y * sv_y);
+                float swirl = cosf(len * 0.411f) + 0.3344f * sinf(len) - 0.23f * cosf(len);
+                sv2_x += sv_x + 0.05f * sv2_y + 0.3f * swirl;
+                sv2_y += sv_y + 0.05f * sv2_x + 0.3f * swirl;
+                sv_x += 0.5f * cosf(cosf(sv2_y) + speed * 0.0812f) * sinf(3.22f + sv2_x - speed * 0.1531f);
+                sv_y += 0.5f * sinf(-sv2_x * 1.21222f + 0.113785f * speed) * cosf(sv2_y * 0.91213f - 0.13582f * speed);
+            }
+
+            float dx = (sv_x / scale_fac) * 5.0f;
+            float dy = ((sv_y - time * 4.0f - x * 0.037f) / scale_fac) * 5.0f;
+            float smoke_res = MAX(0.0f, (sqrtf(dx * dx + dy * dy) + 0.1f * (sqrtf(warped_x * warped_x + warped_y * warped_y) - 0.5f)) * (2.0f / (2.0f + intensity * 0.2f)));
+            smoke_res += MAX(0.0f, 2.0f - 0.3f * intensity) * MAX(0.0f, 2.0f * (warped_y - 0.5f) * (warped_y - 0.5f));
+            if (fabsf(uv_x) > 0.4f) smoke_res += 10.0f * (fabsf(uv_x) - 0.4f);
+
+            if (smoke_res <= 1.0f)
+            {
+                float heat = CLAMP(1.0f - smoke_res + MAX(0.0f, 0.20f - uv_y) * 2.2f, 0.0f, 1.0f);
+                uint32_t flame_colour = game_draw_lerp_colour(colour_1, colour_2, heat);
+                int alpha = (int)(95.0f + 140.0f * heat);
+                if (cy < 2) alpha = (int)((float)alpha * 0.62f);
                 uint32_t tile_colour = (flame_colour & 0x00FFFFFF) | ((uint32_t)CLAMP(alpha, 80, 235) << 24);
                 float px = x + (float)cx * cell_w;
-                float py = y - max_flame_h + (float)cy * cell_h + 2.0f;
+                float py = y - max_flame_h + (float)cy * cell_h + 1.0f;
                 graphics_draw_solid_quad(px, py, cell_w + 0.8f, cell_h + 0.8f, tile_colour);
             }
         }
@@ -2138,18 +2297,19 @@ void game_draw_settings_menu()
 
     graphics_draw_text_center(font_big, "SETTINGS", 240.0f, box_y + 10.0f, 1.2f, COLOR_WHITE);
 
-    const char *labels[] = { "Audio", "Card Motion", "Score Speed", "Ante Scaling", "Overclock", "Back" };
-    char values[6][24];
+    const char *labels[] = { "Audio", "Card Motion", "Debug Tools", "Score Speed", "Ante Scaling", "Overclock", "Back" };
+    char values[7][24];
     strcpy(values[0], g_settings.audio ? "On" : "Off");
     strcpy(values[1], g_settings.move_cards ? "On" : "Off");
-    sprintf(values[2], "%d", g_settings.speed);
-    sprintf(values[3], "%d", g_settings.ante_score_scaling);
-    strcpy(values[4], g_settings.overclock ? "333 MHz" : "Default");
-    values[5][0] = '\0';
+    strcpy(values[2], g_settings.debug_tools ? "On" : "Off");
+    sprintf(values[3], "%d", g_settings.speed);
+    sprintf(values[4], "%d", g_settings.ante_score_scaling);
+    strcpy(values[5], g_settings.overclock ? "333 MHz" : "Default");
+    values[6][0] = '\0';
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 7; i++)
     {
-        float y = box_y + 42.0f + 20.0f * i;
+        float y = box_y + 38.0f + 19.0f * i;
         uint32_t color = (g_game_state.highlighted_item == i) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
         graphics_draw_text(font_small, labels[i], box_x + 24.0f, y, 1.0f, color);
         if (values[i][0] != '\0')
