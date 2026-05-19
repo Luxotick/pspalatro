@@ -83,6 +83,20 @@ make
 2. Copy your official Balatro executable to that same folder.
 3. Modify the `settings.ini` file if needed. This step is optional.
 
+The final folder on your PSP should look like this:
+
+```text
+ms0:/PSP/GAME/PSPalatro/
+├── EBOOT.PBP
+├── Balatro.exe
+├── settings.ini
+└── editions.png
+```
+
+The files inside the repository `assets` folder should be copied next to `EBOOT.PBP`, not kept inside an `assets` folder on the PSP.
+
+If you rename the Balatro executable, update `archive_file_name` in `settings.ini` to match the new filename.
+
 ## Configuration
 
 The `settings.ini` file can have the following entries:
@@ -98,6 +112,7 @@ The `settings.ini` file can have the following entries:
 - `shop_booster_slots` - number - initial shop booster slots
 - `audio` - boolean - turn audio on or off. It is advisable to use this with overclock enabled
 - `move_cards` - boolean - turn card oscillation on or off
+- `debug_tools` - boolean - enable or disable runtime debug shortcuts
 - `overclock` - boolean - set the CPU and BUS clocks to 333MHz. This should be fine for the PSP, but it may drain the battery faster
 - `ante_score_scaling` - int - how the ante score scales, values from 1 to 3
 - `speed` - int - how fast scoring is, values from 1 to 5
