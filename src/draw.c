@@ -1261,67 +1261,36 @@ void game_draw_score_flames(float x, float y, float w, float h, uint32_t colour_
 
     graphics_set_no_texture();
 
-    float max_flame_h = 9.0f + intensity * 2.4f;
-    float body_alpha = CLAMP(0.10f + intensity * 0.03f, 0.14f, 0.30f);
+    float max_flame_h = 8.0f + intensity * 1.8f;
+    float body_alpha = CLAMP(0.10f + intensity * 0.025f, 0.14f, 0.28f);
 
     uint32_t body_colour = (colour_1 & 0x00FFFFFF) | ((uint32_t)(body_alpha * 255.0f) << 24);
     graphics_draw_solid_quad(x, y - 2.0f, w, h + 2.0f, body_colour);
 
-    int cols = 24;
-    int rows = CLAMP(10 + (int)(intensity * 1.3f), 10, 18);
+    int cols = 16;
     float cell_w = w / (float)cols;
-    float total_h = max_flame_h + h * 0.65f;
-    float cell_h = total_h / (float)rows;
-    float time = (float)g_time * 0.045f;
-    float scale_fac = 7.5f + 3.0f / (2.0f + 2.0f * intensity);
-    float speed = 1.0f + 0.35f * sinf(time * 0.71f + x * 0.09f);
+    int time = g_time / 3;
+    int max_height = (int)max_flame_h;
+    int base_height = CLAMP(4 + (int)intensity, 4, 10);
 
-    for (int cy = 0; cy < rows; cy++)
+    for (int cx = 0; cx < cols; cx++)
     {
-        for (int cx = 0; cx < cols; cx++)
-        {
-            float uv_x = ((float)cx + 0.5f) / (float)cols - 0.5f;
-            float uv_y = ((float)cy + 0.5f) / (float)rows - 0.5f;
-            float floored_x = floorf(uv_x * 60.0f) / 60.0f;
-            float floored_y = floorf(uv_y * 60.0f) / 60.0f;
-            float warped_x = floored_x + floored_x * 0.01f * sinf(-1.123f * floored_x + 0.2f * time) * cosf(5.3332f * floored_y + time * 0.931f);
-            float warped_y = floored_y + floored_y * 0.01f * sinf(-1.123f * floored_x + 0.2f * time) * cosf(5.3332f * floored_y + time * 0.931f);
-            float sv_x = warped_x * scale_fac;
-            float sv_y = warped_y * scale_fac + time * 4.0f + x * 0.037f;
-            float sv2_x = 0.0f;
-            float sv2_y = 0.0f;
+        int noise = (cx * 37 + time * 11 + (int)x * 3) & 15;
+        int noise2 = ((cx + time) * 19 + (int)y * 5) & 7;
+        int column_h = CLAMP(base_height + noise / 3 + noise2 / 2, 3, max_height + 4);
+        float px = x + (float)cx * cell_w;
+        float py = y - (float)column_h + 2.0f;
+        float inner_h = (float)column_h * 0.46f;
+        float outer_h = (float)column_h - inner_h;
+        int alpha = CLAMP(110 + (int)(intensity * 18.0f) + noise * 4, 90, 230);
+        uint32_t outer_colour = (colour_1 & 0x00FFFFFF) | ((uint32_t)alpha << 24);
+        uint32_t inner_colour = (colour_2 & 0x00FFFFFF) | ((uint32_t)CLAMP(alpha + 20, 120, 245) << 24);
 
-            for (int i = 0; i < 5; i++)
-            {
-                float len = sqrtf(sv_x * sv_x + sv_y * sv_y);
-                float swirl = cosf(len * 0.411f) + 0.3344f * sinf(len) - 0.23f * cosf(len);
-                sv2_x += sv_x + 0.05f * sv2_y + 0.3f * swirl;
-                sv2_y += sv_y + 0.05f * sv2_x + 0.3f * swirl;
-                sv_x += 0.5f * cosf(cosf(sv2_y) + speed * 0.0812f) * sinf(3.22f + sv2_x - speed * 0.1531f);
-                sv_y += 0.5f * sinf(-sv2_x * 1.21222f + 0.113785f * speed) * cosf(sv2_y * 0.91213f - 0.13582f * speed);
-            }
-
-            float dx = (sv_x / scale_fac) * 5.0f;
-            float dy = ((sv_y - time * 4.0f - x * 0.037f) / scale_fac) * 5.0f;
-            float smoke_res = MAX(0.0f, (sqrtf(dx * dx + dy * dy) + 0.1f * (sqrtf(warped_x * warped_x + warped_y * warped_y) - 0.5f)) * (2.0f / (2.0f + intensity * 0.2f)));
-            smoke_res += MAX(0.0f, 2.0f - 0.3f * intensity) * MAX(0.0f, 2.0f * (warped_y - 0.5f) * (warped_y - 0.5f));
-            if (fabsf(uv_x) > 0.4f) smoke_res += 10.0f * (fabsf(uv_x) - 0.4f);
-
-            if (smoke_res <= 1.0f)
-            {
-                float heat = CLAMP(1.0f - smoke_res + MAX(0.0f, 0.20f - uv_y) * 2.2f, 0.0f, 1.0f);
-                uint32_t flame_colour = game_draw_lerp_colour(colour_1, colour_2, heat);
-                int alpha = (int)(95.0f + 140.0f * heat);
-                if (cy < 2) alpha = (int)((float)alpha * 0.62f);
-                uint32_t tile_colour = (flame_colour & 0x00FFFFFF) | ((uint32_t)CLAMP(alpha, 80, 235) << 24);
-                float px = x + (float)cx * cell_w;
-                float py = y - max_flame_h + (float)cy * cell_h + 1.0f;
-                graphics_draw_solid_quad(px, py, cell_w + 0.8f, cell_h + 0.8f, tile_colour);
-            }
-        }
+        graphics_draw_solid_quad(px, py + inner_h, cell_w + 0.7f, outer_h, outer_colour);
+        graphics_draw_solid_quad(px + 0.6f, py, MAX(1.0f, cell_w - 0.6f), inner_h + 0.8f, inner_colour);
     }
 
-    int sparks = CLAMP((int)(intensity), 1, 5);
+    int sparks = CLAMP((int)(intensity), 1, 4);
     for (int i = 0; i < sparks; i++)
     {
         float spark_x = x + 2.0f + (float)((g_time * (i + 5) + i * 23) % (int)(w - 4.0f));

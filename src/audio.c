@@ -144,17 +144,20 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
     {
         float volume = g_audio_flame_channel.volume;
         float target = g_audio_flame_channel.target_volume;
-        float volume_step = (target - volume) / (float)sample_count;
+        volume += (target - volume) * 0.18f;
         int position = g_audio_flame_channel.position;
+        int volume_fixed = (int)(flame_sfx->volume * volume * 256.0f);
 
-        for (int i = 0; i < sample_count; i++)
+        if (volume_fixed > 0)
         {
-            if (position >= flame_sfx->sample_count) position = 0;
+            for (int i = 0; i < sample_count; i++)
+            {
+                if (position >= flame_sfx->sample_count) position = 0;
 
-            volume += volume_step;
-            struct sample_t sample = flame_sfx->samples[position++];
-            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * flame_sfx->volume * volume));
-            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * flame_sfx->volume * volume));
+                struct sample_t sample = flame_sfx->samples[position++];
+                out[i].l = audio_clamp_sample(out[i].l + ((sample.l * volume_fixed) >> 8));
+                out[i].r = audio_clamp_sample(out[i].r + ((sample.r * volume_fixed) >> 8));
+            }
         }
 
         g_audio_flame_channel.volume = volume;
