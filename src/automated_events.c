@@ -3731,6 +3731,12 @@ void automated_event_pop()
     }
 }
 
+void automated_event_clear()
+{
+    g_automated_event_stack_pos = -1;
+    g_automated_event = NULL;
+}
+
 bool automated_event_run()
 {
     if (g_automated_event_stack_pos < 0) return false;

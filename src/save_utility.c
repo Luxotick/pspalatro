@@ -41,9 +41,105 @@ static char nameMultiple[][20] = {
 };
 
 static const char save_key[] = "BALATRO_KEY_001"; // Encryption key for savedata
+static const char autosave_path[] = "autosave.bin";
+static int autosave_exists_cache = -1;
+
+#define SAVE_MAGIC "PSPALTRO"
+#define SAVE_MAGIC_SIZE 8
+#define SAVE_VERSION 1
+
+struct SaveHeader
+{
+    char magic[SAVE_MAGIC_SIZE];
+    int version;
+    void *base_addr;
+    unsigned int state_size;
+};
 
 static PspUtilitySavedataListSaveNewData newData;
 static char *titleShow = "New Save";
+
+static size_t save_payload_size()
+{
+    return sizeof(struct SaveHeader) + sizeof(g_game_state);
+}
+
+static size_t save_aligned_payload_size()
+{
+    return (save_payload_size() + 63) & ~63;
+}
+
+static void save_relocate_game_state_pointers(void *old_base_addr)
+{
+    long ptr_diff = (long)(&g_game_state.all_cards.cards[0]) - (long)old_base_addr;
+
+    if (ptr_diff == 0) return;
+
+    for(int i=0; i<g_game_state.full_deck.card_count; i++)
+        g_game_state.full_deck.cards[i] = (struct Card*)((char*)g_game_state.full_deck.cards[i] + ptr_diff);
+
+    for(int i=0; i<g_game_state.current_deck.card_count; i++)
+        g_game_state.current_deck.cards[i] = (struct Card*)((char*)g_game_state.current_deck.cards[i] + ptr_diff);
+
+    for(int i=0; i<g_game_state.hand.card_count; i++)
+        g_game_state.hand.cards[i] = (struct Card*)((char*)g_game_state.hand.cards[i] + ptr_diff);
+
+    for(int i=0; i<g_game_state.played_hand.card_count; i++)
+        g_game_state.played_hand.cards[i] = (struct Card*)((char*)g_game_state.played_hand.cards[i] + ptr_diff);
+
+    for(int k=0; k<4; k++)
+    {
+        for(int i=0; i<g_game_state.deck_info.card_count[k]; i++)
+        {
+            g_game_state.deck_info.cards[k][i] = (struct Card*)((char*)g_game_state.deck_info.cards[k][i] + ptr_diff);
+        }
+    }
+}
+
+static bool save_pack_game_state(void *buffer, size_t buffer_size, size_t *data_size)
+{
+    size_t payload_size = save_payload_size();
+    if (!buffer || buffer_size < payload_size) return false;
+
+    struct SaveHeader header;
+    memset(&header, 0, sizeof(header));
+    memcpy(header.magic, SAVE_MAGIC, SAVE_MAGIC_SIZE);
+    header.version = SAVE_VERSION;
+    header.base_addr = &g_game_state.all_cards.cards[0];
+    header.state_size = sizeof(g_game_state);
+
+    memcpy(buffer, &header, sizeof(header));
+    memcpy((char*)buffer + sizeof(header), &g_game_state, sizeof(g_game_state));
+    if (data_size) *data_size = payload_size;
+    return true;
+}
+
+static bool save_unpack_game_state(const void *buffer, size_t data_size)
+{
+    if (!buffer) return false;
+
+    const struct SaveHeader *header = (const struct SaveHeader*)buffer;
+    if (data_size >= sizeof(struct SaveHeader) + sizeof(g_game_state) &&
+        memcmp(header->magic, SAVE_MAGIC, SAVE_MAGIC_SIZE) == 0 &&
+        header->version == SAVE_VERSION &&
+        header->state_size == sizeof(g_game_state))
+    {
+        memcpy(&g_game_state, (const char*)buffer + sizeof(struct SaveHeader), sizeof(g_game_state));
+        save_relocate_game_state_pointers(header->base_addr);
+        return true;
+    }
+
+    if (data_size >= sizeof(void*) + sizeof(g_game_state))
+    {
+        void *old_base_addr;
+        memcpy(&old_base_addr, buffer, sizeof(void*));
+        memcpy(&g_game_state, (const char*)buffer + sizeof(void*), sizeof(g_game_state));
+        save_relocate_game_state_pointers(old_base_addr);
+        return true;
+    }
+
+    return false;
+}
 
 void configure_dialog()
 {
@@ -72,9 +168,8 @@ void configure_dialog()
     memset(dialog.fileName, 0, sizeof(dialog.fileName));
     strncpy(dialog.fileName, "SAVE.BIN", sizeof(dialog.fileName) - 1);
 
-    size_t state_size = sizeof(void*) + sizeof(g_game_state);
-    // Real PSP hardware strictly requires dataBufSize to be 64-byte aligned
-    size_t aligned_state_size = (state_size + 63) & ~63;
+    size_t state_size = save_payload_size();
+    size_t aligned_state_size = save_aligned_payload_size();
     save_debug_log("Allocating save buffer. State size: %d, Aligned: %d", state_size, aligned_state_size);
 
     dialog.dataBufSize = aligned_state_size;
@@ -111,6 +206,84 @@ void configure_dialog()
         newData.icon0.size = icon_size;
     }
     dialog.newData = &newData;
+}
+
+bool save_autosave_exists()
+{
+    if (autosave_exists_cache >= 0) return autosave_exists_cache != 0;
+
+    FILE *file = fopen(autosave_path, "rb");
+    if (!file)
+    {
+        autosave_exists_cache = 0;
+        return false;
+    }
+    fclose(file);
+    autosave_exists_cache = 1;
+    return true;
+}
+
+bool save_write_autosave()
+{
+    size_t data_size = 0;
+    size_t buffer_size = save_aligned_payload_size();
+    void *buffer = memalign(64, buffer_size);
+    if (!buffer) return false;
+
+    memset(buffer, 0, buffer_size);
+    if (!save_pack_game_state(buffer, buffer_size, &data_size))
+    {
+        free(buffer);
+        return false;
+    }
+
+    FILE *file = fopen(autosave_path, "wb");
+    if (!file)
+    {
+        free(buffer);
+        return false;
+    }
+
+    bool ok = fwrite(buffer, 1, data_size, file) == data_size;
+    fclose(file);
+    free(buffer);
+    if (ok) autosave_exists_cache = 1;
+    save_debug_log("autosave write: %s", ok ? "ok" : "failed");
+    return ok;
+}
+
+bool save_load_autosave()
+{
+    FILE *file = fopen(autosave_path, "rb");
+    if (!file)
+    {
+        autosave_exists_cache = 0;
+        return false;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    if (file_size <= 0)
+    {
+        fclose(file);
+        return false;
+    }
+
+    void *buffer = malloc(file_size);
+    if (!buffer)
+    {
+        fclose(file);
+        return false;
+    }
+
+    bool ok = fread(buffer, 1, file_size, file) == (size_t)file_size;
+    fclose(file);
+
+    if (ok) ok = save_unpack_game_state(buffer, file_size);
+    free(buffer);
+    save_debug_log("autosave load: %s", ok ? "ok" : "failed");
+    return ok;
 }
 
 void process_dialog_loop()
@@ -161,9 +334,11 @@ void run_save_utility()
     dialog.mode = PSP_UTILITY_SAVEDATA_LISTSAVE; // Use the slot-based menu mode
     dialog.focus = PSP_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY;
 
-    void *base_addr = &g_game_state.all_cards.cards[0];
-    memcpy(dialog.dataBuf, &base_addr, sizeof(void*));
-    memcpy((char*)dialog.dataBuf + sizeof(void*), &g_game_state, sizeof(g_game_state));
+    size_t data_size = 0;
+    if (save_pack_game_state(dialog.dataBuf, dialog.dataBufSize, &data_size))
+    {
+        dialog.dataSize = data_size;
+    }
 
     sceKernelDcacheWritebackAll();
 
@@ -179,7 +354,7 @@ void run_save_utility()
     save_debug_log("=== SAVE UTILITY COMPLETE ===");
 }
 
-void run_load_utility()
+bool run_load_utility()
 {
     save_debug_log("=== STARTING LISTLOAD UTILITY ===");
 
@@ -198,36 +373,10 @@ void run_load_utility()
 
 
 
+    bool loaded = false;
     if (dialog.base.result == 0) // SUCCESS
     {
-        void *old_base_addr;
-        memcpy(&old_base_addr, dialog.dataBuf, sizeof(void*));
-        memcpy(&g_game_state, (char*)dialog.dataBuf + sizeof(void*), sizeof(g_game_state));
-
-        long ptr_diff = (long)(&g_game_state.all_cards.cards[0]) - (long)old_base_addr;
-
-        if (ptr_diff != 0)
-        {
-            for(int i=0; i<g_game_state.full_deck.card_count; i++)
-                g_game_state.full_deck.cards[i] = (struct Card*)((char*)g_game_state.full_deck.cards[i] + ptr_diff);
-
-            for(int i=0; i<g_game_state.current_deck.card_count; i++)
-                g_game_state.current_deck.cards[i] = (struct Card*)((char*)g_game_state.current_deck.cards[i] + ptr_diff);
-
-            for(int i=0; i<g_game_state.hand.card_count; i++)
-                g_game_state.hand.cards[i] = (struct Card*)((char*)g_game_state.hand.cards[i] + ptr_diff);
-
-            for(int i=0; i<g_game_state.played_hand.card_count; i++)
-                g_game_state.played_hand.cards[i] = (struct Card*)((char*)g_game_state.played_hand.cards[i] + ptr_diff);
-
-            for(int k=0; k<4; k++)
-            {
-                for(int i=0; i<g_game_state.deck_info.card_count[k]; i++)
-                {
-                    g_game_state.deck_info.cards[k][i] = (struct Card*)((char*)g_game_state.deck_info.cards[k][i] + ptr_diff);
-                }
-            }
-        }
+        loaded = save_unpack_game_state(dialog.dataBuf, dialog.dataSize);
     }
 
     free(dialog.dataBuf);
@@ -236,4 +385,5 @@ void run_load_utility()
     audio_resume();
 
     save_debug_log("=== LOAD UTILITY COMPLETE ===");
+    return loaded;
 }

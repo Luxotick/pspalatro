@@ -60,6 +60,8 @@ struct Settings
     bool overclock;
     int ante_score_scaling;
     int speed;
+    int music_volume;
+    int sfx_volume;
 };
 
 extern struct Settings g_settings;
@@ -541,6 +543,7 @@ extern double g_booster_packs_weights_total;
 #define GAME_STAGE_INGAME       1
 #define GAME_STAGE_SHOP         2
 #define GAME_STAGE_PAUSE_MENU   3
+#define GAME_STAGE_TITLE        4
 
 #define GAME_SUBSTAGE_BLINDS_DEFAULT        0
 
@@ -681,6 +684,7 @@ struct GameState
         INPUT_FOCUSED_ZONE_RUN_INFO       ,
         INPUT_FOCUSED_ZONE_PAUSE_MENU     ,
         INPUT_FOCUSED_ZONE_SETTINGS_MENU  ,
+        INPUT_FOCUSED_ZONE_TITLE_MENU     ,
     } input_focused_zone, previous_input_focused_zone;
 
     // ingame
@@ -906,6 +910,7 @@ int game_util_get_random_booster_card_edition();
 void automated_event_set(int event_id, int num_params, ...);
 void automated_event_push(int event_id, int num_params, ...);
 void automated_event_pop();
+void automated_event_clear();
 bool automated_event_run();
 
 bool game_init_load_file_values();
@@ -934,6 +939,8 @@ int game_get_selected_poker_hand(struct Card *cards[], int card_count, int scori
 void game_start_ingame();
 void game_go_to_next_blind();
 void game_start_ingame();
+void game_show_title_menu();
+void game_start_new_run();
 
 void game_go_back_to_previous_stage();
 void game_go_to_stage(int stage, int sub_stage);
@@ -958,6 +965,12 @@ void game_set_initial_position(struct DrawObject *draw);
 
 void game_remove_card_from_played_hand(int index);
 void game_remove_card_from_full_deck(struct Card *card);
+
+void run_save_utility();
+bool run_load_utility();
+bool save_autosave_exists();
+bool save_write_autosave();
+bool save_load_autosave();
 void game_remove_invalid_cards_full_deck();
 
 struct Card *game_set_new_card();

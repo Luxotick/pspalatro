@@ -2223,7 +2223,7 @@ void game_draw_pause_menu()
 
     // Draw the dialog box
     float box_w = 200.0f;
-    float box_h = 150.0f;
+    float box_h = 172.0f;
     float box_x = (480.0f - box_w) / 2.0f;
     float box_y = (272.0f - box_h) / 2.0f;
 
@@ -2242,11 +2242,13 @@ void game_draw_pause_menu()
     uint32_t color_savequit = (g_game_state.highlighted_item == 1) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
     uint32_t color_load = (g_game_state.highlighted_item == 2) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
     uint32_t color_settings = (g_game_state.highlighted_item == 3) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
+    uint32_t color_main_menu = (g_game_state.highlighted_item == 4) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
 
     graphics_draw_text_center(font_small, "Continue", 240.0f, box_y + 40.0f, 1.0f, color_continue);
     graphics_draw_text_center(font_small, "Save", 240.0f, box_y + 64.0f, 1.0f, color_savequit);
     graphics_draw_text_center(font_small, "Load", 240.0f, box_y + 88.0f, 1.0f, color_load);
     graphics_draw_text_center(font_small, "Settings", 240.0f, box_y + 112.0f, 1.0f, color_settings);
+    graphics_draw_text_center(font_small, "Main Menu", 240.0f, box_y + 136.0f, 1.0f, color_main_menu);
 }
 
 void game_draw_settings_menu()
@@ -2254,7 +2256,7 @@ void game_draw_settings_menu()
     graphics_draw_solid_quad(0, 0, 480, 272, 0x88000000);
 
     float box_w = 300.0f;
-    float box_h = 180.0f;
+    float box_h = 212.0f;
     float box_x = (480.0f - box_w) / 2.0f;
     float box_y = (272.0f - box_h) / 2.0f;
 
@@ -2266,19 +2268,21 @@ void game_draw_settings_menu()
 
     graphics_draw_text_center(font_big, "SETTINGS", 240.0f, box_y + 10.0f, 1.2f, COLOR_WHITE);
 
-    const char *labels[] = { "Audio", "Card Motion", "Debug Tools", "Score Speed", "Ante Scaling", "Overclock", "Back" };
-    char values[7][24];
+    const char *labels[] = { "Audio", "Music Vol", "SFX Vol", "Card Motion", "Debug Tools", "Score Speed", "Ante Scaling", "Overclock", "Back" };
+    char values[9][24];
     strcpy(values[0], g_settings.audio ? "On" : "Off");
-    strcpy(values[1], g_settings.move_cards ? "On" : "Off");
-    strcpy(values[2], g_settings.debug_tools ? "On" : "Off");
-    sprintf(values[3], "%d", g_settings.speed);
-    sprintf(values[4], "%d", g_settings.ante_score_scaling);
-    strcpy(values[5], g_settings.overclock ? "333 MHz" : "Default");
-    values[6][0] = '\0';
+    sprintf(values[1], "%d", g_settings.music_volume);
+    sprintf(values[2], "%d", g_settings.sfx_volume);
+    strcpy(values[3], g_settings.move_cards ? "On" : "Off");
+    strcpy(values[4], g_settings.debug_tools ? "On" : "Off");
+    sprintf(values[5], "%d", g_settings.speed);
+    sprintf(values[6], "%d", g_settings.ante_score_scaling);
+    strcpy(values[7], g_settings.overclock ? "333 MHz" : "Default");
+    values[8][0] = '\0';
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 9; i++)
     {
-        float y = box_y + 38.0f + 19.0f * i;
+        float y = box_y + 36.0f + 18.0f * i;
         uint32_t color = (g_game_state.highlighted_item == i) ? COLOR_TEXT_YELLOW : COLOR_WHITE;
         graphics_draw_text(font_small, labels[i], box_x + 24.0f, y, 1.0f, color);
         if (values[i][0] != '\0')
@@ -2288,11 +2292,65 @@ void game_draw_settings_menu()
     }
 }
 
+void game_draw_title_menu()
+{
+    graphics_clear(COLOR_BACKGROUND_2);
+
+    graphics_draw_solid_quad(0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BACKGROUND_2);
+    graphics_draw_solid_quad(26.0f, 20.0f, SCREEN_WIDTH - 52.0f, SCREEN_HEIGHT - 40.0f, COLOR_DARK_GREY);
+    graphics_draw_solid_quad(30.0f, 24.0f, SCREEN_WIDTH - 60.0f, SCREEN_HEIGHT - 48.0f, COLOR_BLACK);
+
+    graphics_draw_text_center(font_big, "PSPalatro", SCREEN_WIDTH / 2.0f, 48.0f, 1.8f, COLOR_WHITE);
+    graphics_draw_text_center(font_small, "Balatro PSP Port", SCREEN_WIDTH / 2.0f, 78.0f, 1.0f, COLOR_LIGHT_GREY_2);
+
+    const char *labels[] = {
+        "Continue Autosave",
+        "Load Manual Save",
+        "New Run",
+        "Settings"
+    };
+
+    bool autosave_available = save_autosave_exists();
+    for (int i = 0; i < 4; i++)
+    {
+        float y = 116.0f + 28.0f * i;
+        uint32_t color = COLOR_WHITE;
+        if (i == 0 && !autosave_available)
+        {
+            color = COLOR_DARK_GREY;
+        }
+        else if (g_game_state.highlighted_item == i)
+        {
+            color = COLOR_TEXT_YELLOW;
+        }
+
+        if (g_game_state.highlighted_item == i && (i != 0 || autosave_available))
+        {
+            graphics_draw_solid_quad(124.0f, y - 6.0f, 232.0f, 22.0f, COLOR_DARK_GREY_2);
+        }
+        graphics_draw_text_center(font_small, labels[i], SCREEN_WIDTH / 2.0f, y, 1.0f, color);
+    }
+
+    graphics_draw_text_center(font_small, "X Select", SCREEN_WIDTH / 2.0f, 238.0f, 1.0f, COLOR_LIGHT_GREY);
+}
+
 void game_draw()
 {
     graphics_begin_draw();
 
     graphics_clear(COLOR_BACKGROUND_2);
+
+    if (g_game_state.stage == GAME_STAGE_TITLE)
+    {
+        game_draw_title_menu();
+        if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_SETTINGS_MENU)
+        {
+            game_draw_settings_menu();
+        }
+        game_draw_debug_info();
+        graphics_end_draw();
+        return;
+    }
 
     int draw_stage = (g_game_state.stage == GAME_STAGE_PAUSE_MENU) ? g_game_state.previous_stage : g_game_state.stage;
 

@@ -15,7 +15,9 @@ struct Settings g_settings = {
     false,
     false,
     2,
-    1
+    1,
+    10,
+    10
 };
 
 struct GameState g_game_state;
@@ -1699,6 +1701,20 @@ bool game_init_load_file_values()
                 int value = atoi(buffer);
                 g_settings.speed = CLAMP(value, 1, 5);
             }
+            else if (!strcmp(buffer, "music_volume"))
+            {
+                token_type = ini_read_token(buffer, 128);
+                if (token_type != INI_TOKEN_VALUE) return false;
+                int value = atoi(buffer);
+                g_settings.music_volume = CLAMP(value, 0, 10);
+            }
+            else if (!strcmp(buffer, "sfx_volume"))
+            {
+                token_type = ini_read_token(buffer, 128);
+                if (token_type != INI_TOKEN_VALUE) return false;
+                int value = atoi(buffer);
+                g_settings.sfx_volume = CLAMP(value, 0, 10);
+            }
         }
         else if (token_type == INI_TOKEN_ERROR)
         {
@@ -1716,6 +1732,7 @@ void game_init_logic()
 {
     srand(time(0));
 
+    g_booster_packs_weights_total = 0.0;
     for (int i = 0; i < BOOSTER_PACK_TYPE_COUNT; i++)
     {
         for (int j = 0; j < BOOSTER_PACK_SIZE_COUNT; j++)
@@ -1855,6 +1872,26 @@ void game_init_logic()
 void game_restart_game()
 {
     game_init_logic();
+}
+
+void game_show_title_menu()
+{
+    automated_event_clear();
+    event_init();
+    audio_set_score_flame_intensity(0.0f);
+    g_game_state.previous_stage = g_game_state.stage;
+    g_game_state.previous_sub_stage = g_game_state.sub_stage;
+    g_game_state.stage = GAME_STAGE_TITLE;
+    g_game_state.sub_stage = 0;
+    g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_TITLE_MENU;
+    g_game_state.highlighted_item = save_autosave_exists() ? 0 : 2;
+}
+
+void game_start_new_run()
+{
+    game_init_logic();
+    event_init();
+    save_write_autosave();
 }
 
 void game_increment_played_poker_hand(int poker_hand)
@@ -2186,6 +2223,12 @@ void game_go_to_stage(int stage, int sub_stage)
             }            
             break;
         }
+    }
+
+    if ((stage == GAME_STAGE_BLINDS && sub_stage == GAME_SUBSTAGE_BLINDS_DEFAULT) ||
+        (stage == GAME_STAGE_SHOP && sub_stage == GAME_SUBSTAGE_SHOP_MAIN))
+    {
+        save_write_autosave();
     }
 }
 

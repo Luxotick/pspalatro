@@ -1048,12 +1048,12 @@ void game_input_update_pause_menu(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_DOWN))
     {
-        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 4;
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 5;
     }
     else if (input_was_button_pressed(INPUT_BUTTON_UP))
     {
         if (g_game_state.highlighted_item == 0)
-            g_game_state.highlighted_item = 3;
+            g_game_state.highlighted_item = 4;
         else
             g_game_state.highlighted_item--;
     }
@@ -1066,25 +1066,96 @@ void game_input_update_pause_menu(bool no_input)
         }
         else if (g_game_state.highlighted_item == 1) // Save
         {
-            extern void run_save_utility();
-            run_save_utility();
             game_go_back_to_previous_stage();
+            run_save_utility();
         }
         else if (g_game_state.highlighted_item == 2) // Load
         {
-            extern void run_load_utility();
-            run_load_utility();
-            game_go_back_to_previous_stage();
+            if (run_load_utility())
+            {
+                event_init();
+            }
+            else
+            {
+                game_go_back_to_previous_stage();
+            }
         }
         else if (g_game_state.highlighted_item == 3) // Settings
         {
             g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_SETTINGS_MENU;
             g_game_state.highlighted_item = 0;
         }
+        else if (g_game_state.highlighted_item == 4) // Main Menu
+        {
+            game_go_back_to_previous_stage();
+            save_write_autosave();
+            game_show_title_menu();
+        }
     }
     else if (input_was_button_pressed(INPUT_BUTTON_START) || input_was_button_pressed(INPUT_BUTTON_CIRCLE))
     {
         game_go_back_to_previous_stage();
+    }
+}
+
+static void game_input_title_move(int direction)
+{
+    int highlighted = g_game_state.highlighted_item;
+    for (int i = 0; i < 4; i++)
+    {
+        highlighted = (highlighted + direction + 4) % 4;
+        if (highlighted != 0 || save_autosave_exists()) break;
+    }
+    g_game_state.highlighted_item = highlighted;
+}
+
+void game_input_update_title_menu(bool no_input)
+{
+    if (no_input) return;
+
+    if (!save_autosave_exists() && g_game_state.highlighted_item == 0)
+    {
+        g_game_state.highlighted_item = 2;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_DOWN))
+    {
+        game_input_title_move(1);
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_UP))
+    {
+        game_input_title_move(-1);
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_CROSS))
+    {
+        if (g_game_state.highlighted_item == 0)
+        {
+            if (save_load_autosave())
+            {
+                event_init();
+            }
+        }
+        else if (g_game_state.highlighted_item == 1)
+        {
+            if (run_load_utility())
+            {
+                event_init();
+            }
+            else
+            {
+                game_show_title_menu();
+            }
+        }
+        else if (g_game_state.highlighted_item == 2)
+        {
+            game_start_new_run();
+        }
+        else if (g_game_state.highlighted_item == 3)
+        {
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_SETTINGS_MENU;
+            g_game_state.highlighted_item = 0;
+        }
     }
 }
 
@@ -1108,29 +1179,43 @@ void game_input_update_settings_value(int direction)
             g_settings.audio = !g_settings.audio;
             break;
         case 1:
-            g_settings.move_cards = !g_settings.move_cards;
+            g_settings.music_volume = CLAMP(g_settings.music_volume + direction, 0, 10);
             break;
         case 2:
+            g_settings.sfx_volume = CLAMP(g_settings.sfx_volume + direction, 0, 10);
+            break;
+        case 3:
+            g_settings.move_cards = !g_settings.move_cards;
+            break;
+        case 4:
             g_settings.debug_tools = !g_settings.debug_tools;
             if (!g_settings.debug_tools)
             {
                 g_debug_info.force_score_flames = false;
             }
             break;
-        case 3:
+        case 5:
             g_settings.speed = CLAMP(g_settings.speed + direction, 1, 5);
             break;
-        case 4:
+        case 6:
             g_settings.ante_score_scaling = CLAMP(g_settings.ante_score_scaling + direction, 1, 3);
             g_game_state.ante_score_scaling = g_settings.ante_score_scaling - 1;
             break;
-        case 5:
+        case 7:
             g_settings.overclock = !g_settings.overclock;
             game_input_apply_overclock_setting();
             break;
-        case 6:
-            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
-            g_game_state.highlighted_item = 3;
+        case 8:
+            if (g_game_state.stage == GAME_STAGE_TITLE)
+            {
+                g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_TITLE_MENU;
+                g_game_state.highlighted_item = 3;
+            }
+            else
+            {
+                g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
+                g_game_state.highlighted_item = 3;
+            }
             break;
     }
 }
@@ -1141,12 +1226,12 @@ void game_input_update_settings_menu(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_DOWN))
     {
-        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 7;
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % 9;
     }
     else if (input_was_button_pressed(INPUT_BUTTON_UP))
     {
         if (g_game_state.highlighted_item == 0)
-            g_game_state.highlighted_item = 6;
+            g_game_state.highlighted_item = 8;
         else
             g_game_state.highlighted_item--;
     }
@@ -1165,12 +1250,28 @@ void game_input_update_settings_menu(bool no_input)
     }
     else if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
     {
-        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
-        g_game_state.highlighted_item = 3;
+        if (g_game_state.stage == GAME_STAGE_TITLE)
+        {
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_TITLE_MENU;
+            g_game_state.highlighted_item = 3;
+        }
+        else
+        {
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_PAUSE_MENU;
+            g_game_state.highlighted_item = 3;
+        }
     }
     else if (input_was_button_pressed(INPUT_BUTTON_START))
     {
-        game_go_back_to_previous_stage();
+        if (g_game_state.stage == GAME_STAGE_TITLE)
+        {
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_TITLE_MENU;
+            g_game_state.highlighted_item = 3;
+        }
+        else
+        {
+            game_go_back_to_previous_stage();
+        }
     }
 }
 
@@ -1284,7 +1385,8 @@ void game_input_update(bool no_input)
     }
 
     // Start Tusu ile Pause (no_input dahi olsa eger kart vs. animasyonu yoksa)
-    if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_PAUSE_MENU &&
+    if (g_game_state.stage != GAME_STAGE_TITLE &&
+        g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_PAUSE_MENU &&
         g_game_state.stage != GAME_STAGE_PAUSE_MENU)
     {
         if (input_was_button_pressed(INPUT_BUTTON_START))
@@ -1301,6 +1403,9 @@ void game_input_update(bool no_input)
 
     switch(g_game_state.input_focused_zone)
     {
+        case INPUT_FOCUSED_ZONE_TITLE_MENU:
+            game_input_update_title_menu(no_input);
+            break;
         case INPUT_FOCUSED_ZONE_HAND:
             game_input_update_hand(no_input);
             break;

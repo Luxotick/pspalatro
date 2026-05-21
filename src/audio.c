@@ -76,6 +76,16 @@ static short audio_clamp_sample(int sample)
     return sample;
 }
 
+static float audio_get_music_volume()
+{
+    return (float)CLAMP(g_settings.music_volume, 0, 10) / 10.0f;
+}
+
+static float audio_get_sfx_volume()
+{
+    return (float)CLAMP(g_settings.sfx_volume, 0, 10) / 10.0f;
+}
+
 void audio_callback(void* buf, unsigned int length, void *userdata)
 {    
     unsigned int buffer_size = length * sizeof(struct sample_t);
@@ -107,6 +117,17 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
         memset(buf, 0, buffer_size);
     }
 
+    float music_volume = audio_get_music_volume();
+    if (music_volume < 0.999f)
+    {
+        for (int i = 0; i < sample_count; i++)
+        {
+            out[i].l = (short)((float)out[i].l * music_volume);
+            out[i].r = (short)((float)out[i].r * music_volume);
+        }
+    }
+
+    float sfx_master_volume = audio_get_sfx_volume();
     for (int channel_index = 0; channel_index < AUDIO_SFX_CHANNELS; channel_index++)
     {
         volatile struct AudioSfxChannel *channel = &g_audio_sfx_channels[channel_index];
@@ -133,8 +154,8 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
             }
 
             struct sample_t sample = sfx->samples[channel->position++];
-            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * sfx->volume));
-            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * sfx->volume));
+            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * sfx->volume * sfx_master_volume));
+            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * sfx->volume * sfx_master_volume));
         }
     }
 
@@ -146,7 +167,7 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
         float target = g_audio_flame_channel.target_volume;
         volume += (target - volume) * 0.18f;
         int position = g_audio_flame_channel.position;
-        int volume_fixed = (int)(flame_sfx->volume * volume * 256.0f);
+        int volume_fixed = (int)(flame_sfx->volume * volume * sfx_master_volume * 256.0f);
 
         if (volume_fixed > 0)
         {

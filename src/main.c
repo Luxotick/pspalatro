@@ -71,6 +71,7 @@ bool init_more_stuff()
     archive_close();
 
     event_init();
+    game_show_title_menu();
 
     return true;
 }
