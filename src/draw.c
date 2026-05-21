@@ -63,9 +63,9 @@ g_editions_tex_coords[CARD_EDITION_COUNT] = {
 g_seal_tex_coords[] = {
     { 0, 0 },     // CARD_SEAL_NONE
     { 143, 1 },   // CARD_SEAL_GOLD
-    { 356, 285 }, // CARD_SEAL_RED
-    { 427, 285 }, // CARD_SEAL_BLUE
-    { 285, 285 }  // CARD_SEAL_PURPLE
+    { 356, 381 }, // CARD_SEAL_RED
+    { 427, 381 }, // CARD_SEAL_BLUE
+    { 285, 381 }  // CARD_SEAL_PURPLE
 },
 g_ui_assets_tex_coords[UI_ASSETS_COUNT] = {
     { 0, 0 }, // UI_ASSETS_CHIP
