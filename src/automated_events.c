@@ -1501,7 +1501,15 @@ bool automated_event_score()
 
     AUTO_EVENT_NAMED_STAGE(DISCARD_DEALT_HAND) // Discard dealt hand
     {
-        g_game_state.score += g_game_state.current_base_chips * g_game_state.current_base_mult;
+        if (g_game_state.deck_type == DECK_TYPE_PLASMA)
+        {
+            double balanced = floor(((double)g_game_state.current_base_chips + (double)g_game_state.current_base_mult) / 2.0);
+            g_game_state.score += balanced * balanced;
+        }
+        else
+        {
+            g_game_state.score += g_game_state.current_base_chips * g_game_state.current_base_mult;
+        }
         g_game_state.current_poker_hand = GAME_POKER_HAND_NONE;
         g_game_state.current_base_chips = 0;
         g_game_state.current_base_mult = 0;
@@ -1678,6 +1686,7 @@ bool automated_event_score()
         {            
             if (g_game_state.ante == 8 && g_game_state.blind == GAME_BLIND_BOSS)
             {
+                profile_mark_run_won(g_game_state.deck_type);
                 game_go_to_stage(GAME_STAGE_INGAME, GAME_SUBSTAGE_INGAME_WON_END);
             }
             else
@@ -1950,7 +1959,7 @@ bool automated_event_cash_out()
     AUTO_EVENT_STAGE() // Remaining hands
     {
         audio_play_sfx(AUDIO_SFX_COIN);
-        g_game_state.cash_out_hands = g_game_state.current_hands;
+        g_game_state.cash_out_hands = g_game_state.current_hands * (g_game_state.deck_type == DECK_TYPE_GREEN ? 2 : 1);
         g_game_state.cash_out_value += g_game_state.cash_out_hands;
     }
 
@@ -1959,8 +1968,15 @@ bool automated_event_cash_out()
     AUTO_EVENT_STAGE() // Interest money
     {
         audio_play_sfx(AUDIO_SFX_COIN);
-        int value_to_consider = CLAMP(g_game_state.wealth, 0, 25);
-        g_game_state.cash_out_interest = value_to_consider / 5;
+        if (g_game_state.deck_type == DECK_TYPE_GREEN)
+        {
+            g_game_state.cash_out_interest = g_game_state.current_discards;
+        }
+        else
+        {
+            int value_to_consider = CLAMP(g_game_state.wealth, 0, 25);
+            g_game_state.cash_out_interest = value_to_consider / 5;
+        }
         g_game_state.cash_out_value += g_game_state.cash_out_interest;
 
         AUTO_EVENT_SET_VAL(CASHOUT_PARAM_JOKER_COUNTER, 0)        

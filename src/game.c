@@ -21,6 +21,27 @@ struct Settings g_settings = {
 };
 
 struct GameState g_game_state;
+struct Profile g_profile;
+
+struct DeckType g_deck_types[DECK_TYPE_COUNT] = {
+    { DECK_TYPE_RED,       "Red Deck",       0, 0, { "+1 discard", "every round", "" }, "Unlocked from start" },
+    { DECK_TYPE_BLUE,      "Blue Deck",      0, 2, { "+1 hand", "every round", "" }, "Discover 20 items" },
+    { DECK_TYPE_YELLOW,    "Yellow Deck",    1, 2, { "Start with", "extra $10", "" }, "Discover 50 items" },
+    { DECK_TYPE_GREEN,     "Green Deck",     2, 2, { "$2/hand, $1/discard", "no interest", "" }, "Discover 75 items" },
+    { DECK_TYPE_BLACK,     "Black Deck",     3, 2, { "+1 Joker slot", "-1 hand", "" }, "Discover 100 items" },
+    { DECK_TYPE_MAGIC,     "Magic Deck",     0, 3, { "+1 consumable slot", "2 Fool cards", "" }, "Win with Red Deck" },
+    { DECK_TYPE_NEBULA,    "Nebula Deck",    3, 0, { "Telescope effect", "-1 consumable slot", "" }, "Win with Blue Deck" },
+    { DECK_TYPE_GHOST,     "Ghost Deck",     6, 2, { "Start with Hex", "Spectrals in shop", "" }, "Win with Yellow Deck" },
+    { DECK_TYPE_ABANDONED, "Abandoned Deck", 3, 3, { "No face cards", "in deck", "" }, "Win with Green Deck" },
+    { DECK_TYPE_CHECKERED, "Checkered Deck", 1, 3, { "26 Spades", "26 Hearts", "" }, "Win with Black Deck" },
+    { DECK_TYPE_ZODIAC,    "Zodiac Deck",    3, 4, { "Merchant vouchers", "not yet ported", "" }, "Win on Red Stake" },
+    { DECK_TYPE_PAINTED,   "Painted Deck",   4, 3, { "+2 hand size", "-1 Joker slot", "" }, "Win on Green Stake" },
+    { DECK_TYPE_ANAGLYPH,  "Anaglyph Deck",  2, 4, { "Double Tags", "not yet ported", "" }, "Win on Black Stake" },
+    { DECK_TYPE_PLASMA,    "Plasma Deck",    4, 2, { "Balance Chips/Mult", "x2 Blind size", "" }, "Win on Blue Stake" },
+    { DECK_TYPE_ERRATIC,   "Erratic Deck",   2, 3, { "Random ranks", "and suits", "" }, "Win on Orange Stake" }
+};
+
+static int g_new_run_deck_type = DECK_TYPE_RED;
 
 char *g_card_suits[4] = {
     "Hearts",
@@ -488,6 +509,7 @@ void game_init_joker(struct Joker *joker)
 double game_get_current_blind_score()
 {
     double score = game_get_ante_base_score();
+    if (g_game_state.deck_type == DECK_TYPE_PLASMA) score *= 2.0;
 
     return score * (1.0 + (double)g_game_state.blind * 0.5);
 }
@@ -1144,6 +1166,7 @@ void game_init_booster_items()
                 g_game_state.shop.booster_items[i].type = ITEM_TYPE_TAROT;
                 g_game_state.shop.booster_items[i].info.tarot.type =  game_util_get_new_tarot_type(excluded_tarots, excluded_tarots_count);
                 g_game_state.shop.booster_items[i].info.tarot.edition = CARD_EDITION_BASE;
+                profile_discover_tarot(g_game_state.shop.booster_items[i].info.tarot.type);
 
                 excluded_tarots[excluded_tarots_count++] = g_game_state.shop.booster_items[i].info.tarot.type;
             }
@@ -1167,6 +1190,7 @@ void game_init_booster_items()
                 g_game_state.shop.booster_items[i].info.joker.type = game_util_get_new_joker_type(excluded_joker_types, excluded_joker_types_count, false);                
                 g_game_state.shop.booster_items[i].info.joker.edition = game_util_get_shop_joker_edition();
                 game_init_joker(&(g_game_state.shop.booster_items[i].info.joker));
+                profile_discover_joker(g_game_state.shop.booster_items[i].info.joker.type);
 
                 excluded_joker_types[excluded_joker_types_count++] = g_game_state.shop.booster_items[i].info.joker.type;
             }
@@ -1176,6 +1200,12 @@ void game_init_booster_items()
         {
             int excluded_planets[200];
             int excluded_planets_count = 0;
+            int telescope_planet = -1;
+            if (g_game_state.deck_type == DECK_TYPE_NEBULA &&
+                g_game_state.stats.most_played_poker_hand != GAME_POKER_HAND_NONE)
+            {
+                telescope_planet = game_util_get_planet_type_of_poker_hand(g_game_state.stats.most_played_poker_hand);
+            }
 
             g_game_state.shop.booster_total_items = g_game_state.shop.booster_item_count = 3;
             if (g_game_state.shop.opened_booster.size != BOOSTER_PACK_SIZE_NORMAL) g_game_state.shop.booster_total_items = g_game_state.shop.booster_item_count = 5;
@@ -1183,8 +1213,12 @@ void game_init_booster_items()
             {
                 g_game_state.shop.booster_items[i].available = true;
                 g_game_state.shop.booster_items[i].type = ITEM_TYPE_PLANET;
-                g_game_state.shop.booster_items[i].info.planet.type = game_util_get_new_planet_type(excluded_planets, excluded_planets_count);
+                if (i == 0 && telescope_planet >= 0)
+                    g_game_state.shop.booster_items[i].info.planet.type = telescope_planet;
+                else
+                    g_game_state.shop.booster_items[i].info.planet.type = game_util_get_new_planet_type(excluded_planets, excluded_planets_count);
                 g_game_state.shop.booster_items[i].info.planet.edition = CARD_EDITION_BASE;
+                profile_discover_planet(g_game_state.shop.booster_items[i].info.planet.type);
 
                 excluded_planets[excluded_planets_count++] = g_game_state.shop.booster_items[i].info.planet.type;
             }
@@ -1203,6 +1237,7 @@ void game_init_booster_items()
                 g_game_state.shop.booster_items[i].type = ITEM_TYPE_SPECTRAL;
                 g_game_state.shop.booster_items[i].info.spectral.type = game_util_get_new_spectral_type(excluded_spectrals, excluded_spectrals_count, true);
                 g_game_state.shop.booster_items[i].info.spectral.edition = CARD_EDITION_BASE;
+                profile_discover_spectral(g_game_state.shop.booster_items[i].info.spectral.type);
 
                 excluded_spectrals[excluded_spectrals_count++] = g_game_state.shop.booster_items[i].info.spectral.type;
             }
@@ -1728,6 +1763,111 @@ bool game_init_load_file_values()
     return true;
 }
 
+static void game_add_starting_tarot(int tarot_type)
+{
+    if (g_game_state.consumables.item_count >= g_game_state.consumable_slots) return;
+    int index = g_game_state.consumables.item_count++;
+    g_game_state.consumables.items[index].type = ITEM_TYPE_TAROT;
+    game_init_tarot(&g_game_state.consumables.items[index].tarot, tarot_type, CARD_EDITION_BASE);
+    profile_discover_tarot(tarot_type);
+}
+
+static void game_add_starting_spectral(int spectral_type)
+{
+    if (g_game_state.consumables.item_count >= g_game_state.consumable_slots) return;
+    int index = g_game_state.consumables.item_count++;
+    g_game_state.consumables.items[index].type = ITEM_TYPE_SPECTRAL;
+    game_init_spectral(&g_game_state.consumables.items[index].spectral, spectral_type, CARD_EDITION_BASE);
+    profile_discover_spectral(spectral_type);
+}
+
+static void game_remove_face_cards_from_full_deck()
+{
+    int write = 0;
+    for (int i = 0; i < g_game_state.full_deck.card_count; i++)
+    {
+        struct Card *card = g_game_state.full_deck.cards[i];
+        if (card->rank == CARD_RANK_JACK || card->rank == CARD_RANK_QUEEN || card->rank == CARD_RANK_KING)
+        {
+            continue;
+        }
+        g_game_state.full_deck.cards[write++] = card;
+    }
+    g_game_state.full_deck.card_count = write;
+}
+
+static void game_make_checkered_deck()
+{
+    int index = 0;
+    for (int copy = 0; copy < 2; copy++)
+    {
+        for (int rank = 0; rank < CARD_RANK_COUNT; rank++)
+        {
+            g_game_state.all_cards.cards[index].rank = rank;
+            g_game_state.all_cards.cards[index].suit = CARD_SUIT_HEARTS;
+            index++;
+            g_game_state.all_cards.cards[index].rank = rank;
+            g_game_state.all_cards.cards[index].suit = CARD_SUIT_SPADES;
+            index++;
+        }
+    }
+}
+
+static void game_make_erratic_deck()
+{
+    for (int i = 0; i < g_game_state.full_deck.card_count; i++)
+    {
+        g_game_state.full_deck.cards[i]->rank = random_int(0, CARD_RANK_COUNT - 1);
+        g_game_state.full_deck.cards[i]->suit = random_int(0, 3);
+    }
+}
+
+static void game_apply_deck_effects()
+{
+    switch (g_game_state.deck_type)
+    {
+        case DECK_TYPE_RED:
+            g_game_state.total_discards++;
+            break;
+        case DECK_TYPE_BLUE:
+            g_game_state.total_hands++;
+            break;
+        case DECK_TYPE_YELLOW:
+            g_game_state.wealth += 10;
+            break;
+        case DECK_TYPE_BLACK:
+            g_game_state.joker_slots++;
+            g_game_state.total_hands = MAX(1, g_game_state.total_hands - 1);
+            break;
+        case DECK_TYPE_MAGIC:
+            g_game_state.consumable_slots++;
+            game_add_starting_tarot(TAROT_TYPE_FOOL);
+            game_add_starting_tarot(TAROT_TYPE_FOOL);
+            break;
+        case DECK_TYPE_NEBULA:
+            g_game_state.consumable_slots = MAX(0, g_game_state.consumable_slots - 1);
+            break;
+        case DECK_TYPE_GHOST:
+            game_add_starting_spectral(SPECTRAL_TYPE_HEX);
+            break;
+        case DECK_TYPE_ABANDONED:
+            game_remove_face_cards_from_full_deck();
+            break;
+        case DECK_TYPE_CHECKERED:
+            game_make_checkered_deck();
+            break;
+        case DECK_TYPE_PAINTED:
+            g_game_state.base_hand_size += 2;
+            g_game_state.joker_slots = MAX(0, g_game_state.joker_slots - 1);
+            break;
+        case DECK_TYPE_ERRATIC:
+            game_make_erratic_deck();
+            break;
+        default:
+            break;
+    }
+}
+
 void game_init_logic()
 {
     srand(time(0));
@@ -1748,6 +1888,7 @@ void game_init_logic()
     g_joker_types[JOKER_TYPE_LUCKY_CAT].enabled = false;
 
     g_game_state.score = 0.0;
+    g_game_state.deck_type = g_new_run_deck_type;
     g_game_state.ante = 1;
     g_game_state.blind = GAME_BLIND_SMALL;
     g_game_state.total_hands = g_settings.hands;
@@ -1814,9 +1955,6 @@ void game_init_logic()
     g_game_state.poker_hand_base_mult[GAME_POKER_HAND_FLUSH_FIVE] = 16;
     g_game_state.poker_hand_level[GAME_POKER_HAND_FLUSH_FIVE] = 1;
 
-    game_init_full_deck();
-    game_util_copy_deck(&g_game_state.full_deck, &g_game_state.current_deck);
-
     // For testing purposes
     g_game_state.jokers.jokers[0].type = JOKER_TYPE_FACELESS_JOKER;
     g_game_state.jokers.jokers[0].edition = CARD_EDITION_BASE;
@@ -1837,10 +1975,12 @@ void game_init_logic()
         game_init_joker(&(g_game_state.jokers.jokers[i]));
     }
 
-    g_game_state.consumables.items[0].type = ITEM_TYPE_TAROT;
-    g_game_state.consumables.items[0].tarot.edition = 0;
-    g_game_state.consumables.items[0].tarot.type = TAROT_TYPE_DEATH;
     g_game_state.consumables.item_count = 0;
+
+    game_init_full_deck();
+    game_apply_deck_effects();
+    game_util_copy_deck(&g_game_state.full_deck, &g_game_state.current_deck);
+    profile_discover_deck(g_game_state.deck_type);
 
     game_set_joker_position();
 
@@ -1887,8 +2027,9 @@ void game_show_title_menu()
     g_game_state.highlighted_item = save_autosave_exists() ? 0 : 2;
 }
 
-void game_start_new_run()
+void game_start_new_run(int deck_type)
 {
+    g_new_run_deck_type = CLAMP(deck_type, 0, DECK_TYPE_COUNT - 1);
     game_init_logic();
     event_init();
     save_write_autosave();
@@ -1955,18 +2096,30 @@ void game_shop_set_singles()
             game_init_joker(&g_game_state.shop.items[i].info.joker);
             g_game_state.shop.items[i].info.joker.edition = game_util_get_shop_joker_edition();
             excluded_joker_types[excluded_joker_types_count++] = g_game_state.shop.items[i].info.joker.type;
+            profile_discover_joker(g_game_state.shop.items[i].info.joker.type);
         }
         else if (r <= CHANCE_JOKER_SHOP_SINGLE + CHANCE_TAROT_SHOP_SINGLE)
         {
             g_game_state.shop.items[i].type = ITEM_TYPE_TAROT;
             g_game_state.shop.items[i].info.tarot.type = game_util_get_new_tarot_type(excluded_tarots, excluded_tarots_count);
             excluded_tarots[excluded_tarots_count++] = g_game_state.shop.items[i].info.tarot.type;
+            profile_discover_tarot(g_game_state.shop.items[i].info.tarot.type);
+        }
+        else if (g_game_state.deck_type == DECK_TYPE_GHOST && r > 90)
+        {
+            int excluded_spectrals[200];
+            int excluded_spectrals_count = 0;
+            g_game_state.shop.items[i].type = ITEM_TYPE_SPECTRAL;
+            g_game_state.shop.items[i].info.spectral.type = game_util_get_new_spectral_type(excluded_spectrals, excluded_spectrals_count, true);
+            g_game_state.shop.items[i].info.spectral.edition = CARD_EDITION_BASE;
+            profile_discover_spectral(g_game_state.shop.items[i].info.spectral.type);
         }
         else
         {
             g_game_state.shop.items[i].type = ITEM_TYPE_PLANET;
             g_game_state.shop.items[i].info.planet.type = game_util_get_new_planet_type(excluded_planets, excluded_planets_count);
             excluded_planets[excluded_planets_count++] = g_game_state.shop.items[i].info.planet.type;
+            profile_discover_planet(g_game_state.shop.items[i].info.planet.type);
         }
     }
     game_set_shop_item_position();
@@ -1987,6 +2140,7 @@ void game_shop_set_boosters()
         {
             game_util_get_new_booster_pack(&(g_game_state.shop.boosters[i].booster.type), &(g_game_state.shop.boosters[i].booster.size));
         }
+        profile_discover_booster(g_game_state.shop.boosters[i].booster.type);
         g_game_state.shop.boosters[i].booster.image = random_int(0, BOOSTER_PACK_MAX_IMAGES - 1);
     }
     

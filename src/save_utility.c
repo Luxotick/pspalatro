@@ -42,11 +42,14 @@ static char nameMultiple[][20] = {
 
 static const char save_key[] = "BALATRO_KEY_001"; // Encryption key for savedata
 static const char autosave_path[] = "autosave.bin";
+static const char profile_path[] = "profile.bin";
 static int autosave_exists_cache = -1;
 
 #define SAVE_MAGIC "PSPALTRO"
 #define SAVE_MAGIC_SIZE 8
 #define SAVE_VERSION 1
+#define PROFILE_MAGIC "PSPAPROF"
+#define PROFILE_VERSION 1
 
 struct SaveHeader
 {
@@ -55,6 +58,258 @@ struct SaveHeader
     void *base_addr;
     unsigned int state_size;
 };
+
+struct ProfileHeader
+{
+    char magic[SAVE_MAGIC_SIZE];
+    int version;
+    unsigned int profile_size;
+};
+
+int profile_get_discovered_items_count();
+
+static int profile_popcount(uint32_t value)
+{
+    int count = 0;
+    while (value)
+    {
+        count += value & 1;
+        value >>= 1;
+    }
+    return count;
+}
+
+static void profile_init_defaults()
+{
+    memset(&g_profile, 0, sizeof(g_profile));
+    g_profile.unlocked_decks = 1u << DECK_TYPE_RED;
+}
+
+static void profile_update_deck_unlocks()
+{
+    int discovered = profile_get_discovered_items_count();
+    g_profile.unlocked_decks |= 1u << DECK_TYPE_RED;
+
+    if (discovered >= 20) g_profile.unlocked_decks |= 1u << DECK_TYPE_BLUE;
+    if (discovered >= 50) g_profile.unlocked_decks |= 1u << DECK_TYPE_YELLOW;
+    if (discovered >= 75) g_profile.unlocked_decks |= 1u << DECK_TYPE_GREEN;
+    if (discovered >= 100) g_profile.unlocked_decks |= 1u << DECK_TYPE_BLACK;
+
+    if (g_profile.won_decks & (1u << DECK_TYPE_RED)) g_profile.unlocked_decks |= 1u << DECK_TYPE_MAGIC;
+    if (g_profile.won_decks & (1u << DECK_TYPE_BLUE)) g_profile.unlocked_decks |= 1u << DECK_TYPE_NEBULA;
+    if (g_profile.won_decks & (1u << DECK_TYPE_YELLOW)) g_profile.unlocked_decks |= 1u << DECK_TYPE_GHOST;
+    if (g_profile.won_decks & (1u << DECK_TYPE_GREEN)) g_profile.unlocked_decks |= 1u << DECK_TYPE_ABANDONED;
+    if (g_profile.won_decks & (1u << DECK_TYPE_BLACK)) g_profile.unlocked_decks |= 1u << DECK_TYPE_CHECKERED;
+
+    if (g_profile.highest_stake_win >= 1) g_profile.unlocked_decks |= 1u << DECK_TYPE_ZODIAC;
+    if (g_profile.highest_stake_win >= 2) g_profile.unlocked_decks |= 1u << DECK_TYPE_PAINTED;
+    if (g_profile.highest_stake_win >= 3) g_profile.unlocked_decks |= 1u << DECK_TYPE_ANAGLYPH;
+    if (g_profile.highest_stake_win >= 4) g_profile.unlocked_decks |= 1u << DECK_TYPE_PLASMA;
+    if (g_profile.highest_stake_win >= 5) g_profile.unlocked_decks |= 1u << DECK_TYPE_ERRATIC;
+}
+
+bool profile_save()
+{
+    FILE *file = fopen(profile_path, "wb");
+    if (!file) return false;
+
+    struct ProfileHeader header;
+    memset(&header, 0, sizeof(header));
+    memcpy(header.magic, PROFILE_MAGIC, SAVE_MAGIC_SIZE);
+    header.version = PROFILE_VERSION;
+    header.profile_size = sizeof(g_profile);
+
+    bool ok = fwrite(&header, 1, sizeof(header), file) == sizeof(header);
+    if (ok) ok = fwrite(&g_profile, 1, sizeof(g_profile), file) == sizeof(g_profile);
+    fclose(file);
+    return ok;
+}
+
+void profile_load()
+{
+    profile_init_defaults();
+
+    FILE *file = fopen(profile_path, "rb");
+    if (!file)
+    {
+        profile_save();
+        return;
+    }
+
+    struct ProfileHeader header;
+    bool ok = fread(&header, 1, sizeof(header), file) == sizeof(header);
+    if (ok &&
+        memcmp(header.magic, PROFILE_MAGIC, SAVE_MAGIC_SIZE) == 0 &&
+        header.version == PROFILE_VERSION &&
+        header.profile_size == sizeof(g_profile))
+    {
+        ok = fread(&g_profile, 1, sizeof(g_profile), file) == sizeof(g_profile);
+    }
+    fclose(file);
+
+    if (!ok) profile_init_defaults();
+    profile_update_deck_unlocks();
+    profile_save();
+}
+
+bool profile_is_deck_unlocked(int deck_type)
+{
+    if (deck_type < 0 || deck_type >= DECK_TYPE_COUNT) return false;
+    profile_update_deck_unlocks();
+    return (g_profile.unlocked_decks & (1u << deck_type)) != 0;
+}
+
+int profile_get_discovered_items_count()
+{
+    int count = 0;
+    for (int i = 0; i < 5; i++) count += profile_popcount(g_profile.discovered_jokers[i]);
+    count += profile_popcount(g_profile.discovered_tarots);
+    count += profile_popcount(g_profile.discovered_planets);
+    count += profile_popcount(g_profile.discovered_spectrals);
+    count += profile_popcount(g_profile.discovered_boosters);
+    count += profile_popcount(g_profile.discovered_decks);
+    return count;
+}
+
+void profile_discover_joker(int joker_type)
+{
+    if (joker_type < 0 || joker_type >= 160) return;
+    uint32_t mask = 1u << (joker_type % 32);
+    if (!(g_profile.discovered_jokers[joker_type / 32] & mask))
+    {
+        g_profile.discovered_jokers[joker_type / 32] |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_discover_tarot(int tarot_type)
+{
+    if (tarot_type < 0 || tarot_type >= 32) return;
+    uint32_t mask = 1u << tarot_type;
+    if (!(g_profile.discovered_tarots & mask))
+    {
+        g_profile.discovered_tarots |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_discover_planet(int planet_type)
+{
+    if (planet_type < 0 || planet_type >= 32) return;
+    uint32_t mask = 1u << planet_type;
+    if (!(g_profile.discovered_planets & mask))
+    {
+        g_profile.discovered_planets |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_discover_spectral(int spectral_type)
+{
+    if (spectral_type < 0 || spectral_type >= 32) return;
+    uint32_t mask = 1u << spectral_type;
+    if (!(g_profile.discovered_spectrals & mask))
+    {
+        g_profile.discovered_spectrals |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_discover_booster(int booster_type)
+{
+    if (booster_type < 0 || booster_type >= 32) return;
+    uint32_t mask = 1u << booster_type;
+    if (!(g_profile.discovered_boosters & mask))
+    {
+        g_profile.discovered_boosters |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_discover_deck(int deck_type)
+{
+    if (deck_type < 0 || deck_type >= DECK_TYPE_COUNT) return;
+    uint32_t mask = 1u << deck_type;
+    if (!(g_profile.discovered_decks & mask))
+    {
+        g_profile.discovered_decks |= mask;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+}
+
+void profile_mark_run_won(int deck_type)
+{
+    if (deck_type < 0 || deck_type >= DECK_TYPE_COUNT) return;
+    g_profile.won_decks |= 1u << deck_type;
+    profile_discover_deck(deck_type);
+    profile_update_deck_unlocks();
+    profile_save();
+}
+
+void profile_debug_lock_all_progress()
+{
+    profile_init_defaults();
+    profile_save();
+}
+
+void profile_debug_unlock_next_deck_tier()
+{
+    int discovered = profile_get_discovered_items_count();
+
+    if (discovered < 20)
+    {
+        for (int i = 0; i < 20; i++) profile_discover_joker(i);
+    }
+    else if (discovered < 50)
+    {
+        for (int i = 20; i < 50; i++) profile_discover_joker(i);
+    }
+    else if (discovered < 75)
+    {
+        for (int i = 50; i < 75; i++) profile_discover_joker(i);
+    }
+    else if (discovered < 100)
+    {
+        for (int i = 75; i < 100; i++) profile_discover_joker(i);
+    }
+    else if (!(g_profile.won_decks & (1u << DECK_TYPE_RED)))
+    {
+        profile_mark_run_won(DECK_TYPE_RED);
+    }
+    else if (!(g_profile.won_decks & (1u << DECK_TYPE_BLUE)))
+    {
+        profile_mark_run_won(DECK_TYPE_BLUE);
+    }
+    else if (!(g_profile.won_decks & (1u << DECK_TYPE_YELLOW)))
+    {
+        profile_mark_run_won(DECK_TYPE_YELLOW);
+    }
+    else if (!(g_profile.won_decks & (1u << DECK_TYPE_GREEN)))
+    {
+        profile_mark_run_won(DECK_TYPE_GREEN);
+    }
+    else if (!(g_profile.won_decks & (1u << DECK_TYPE_BLACK)))
+    {
+        profile_mark_run_won(DECK_TYPE_BLACK);
+    }
+    else if (g_profile.highest_stake_win < 5)
+    {
+        g_profile.highest_stake_win++;
+        profile_update_deck_unlocks();
+        profile_save();
+    }
+    else
+    {
+        g_profile.unlocked_decks = (1u << DECK_TYPE_COUNT) - 1;
+        profile_save();
+    }
+}
 
 static PspUtilitySavedataListSaveNewData newData;
 static char *titleShow = "New Save";
@@ -119,21 +374,27 @@ static bool save_unpack_game_state(const void *buffer, size_t data_size)
     if (!buffer) return false;
 
     const struct SaveHeader *header = (const struct SaveHeader*)buffer;
-    if (data_size >= sizeof(struct SaveHeader) + sizeof(g_game_state) &&
+    if (data_size >= sizeof(struct SaveHeader) &&
         memcmp(header->magic, SAVE_MAGIC, SAVE_MAGIC_SIZE) == 0 &&
         header->version == SAVE_VERSION &&
-        header->state_size == sizeof(g_game_state))
+        header->state_size <= sizeof(g_game_state) &&
+        data_size >= sizeof(struct SaveHeader) + header->state_size)
     {
-        memcpy(&g_game_state, (const char*)buffer + sizeof(struct SaveHeader), sizeof(g_game_state));
+        memset(&g_game_state, 0, sizeof(g_game_state));
+        memcpy(&g_game_state, (const char*)buffer + sizeof(struct SaveHeader), header->state_size);
+        if (header->state_size < sizeof(g_game_state)) g_game_state.deck_type = DECK_TYPE_RED;
         save_relocate_game_state_pointers(header->base_addr);
         return true;
     }
 
-    if (data_size >= sizeof(void*) + sizeof(g_game_state))
+    if (data_size > sizeof(void*))
     {
         void *old_base_addr;
+        size_t state_size = MIN(data_size - sizeof(void*), sizeof(g_game_state));
         memcpy(&old_base_addr, buffer, sizeof(void*));
-        memcpy(&g_game_state, (const char*)buffer + sizeof(void*), sizeof(g_game_state));
+        memset(&g_game_state, 0, sizeof(g_game_state));
+        memcpy(&g_game_state, (const char*)buffer + sizeof(void*), state_size);
+        if (state_size < sizeof(g_game_state)) g_game_state.deck_type = DECK_TYPE_RED;
         save_relocate_game_state_pointers(old_base_addr);
         return true;
     }

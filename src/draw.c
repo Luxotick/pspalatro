@@ -1499,7 +1499,7 @@ void game_draw_cash_out_panel()
     y += 16;
     if (g_game_state.cash_out_interest > -1)
     {
-        graphics_draw_text(font_small, "Interest", x + 4, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, g_game_state.deck_type == DECK_TYPE_GREEN ? "Discards" : "Interest", x + 4, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_interest);
         graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
     }
@@ -2334,6 +2334,146 @@ void game_draw_title_menu()
     graphics_draw_text_center(font_small, "X Select", SCREEN_WIDTH / 2.0f, 238.0f, 1.0f, COLOR_LIGHT_GREY);
 }
 
+static void game_draw_deck_back_preview(int deck_type, float x, float y, float w, float h, uint32_t color)
+{
+    int u = g_deck_types[deck_type].u;
+    int v = g_deck_types[deck_type].v;
+    if (!profile_is_deck_unlocked(deck_type))
+    {
+        u = 4;
+        v = 0;
+    }
+
+    graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
+    graphics_draw_quad(
+        x, y, w, h,
+        1 + u * (TEXTURE_CARD_WIDTH + 2),
+        1 + v * (TEXTURE_CARD_HEIGHT + 2),
+        TEXTURE_CARD_WIDTH,
+        TEXTURE_CARD_HEIGHT,
+        color);
+}
+
+static void game_get_deck_progress_text(int deck_type, char *dst)
+{
+    int discovered = profile_get_discovered_items_count();
+
+    switch (deck_type)
+    {
+        case DECK_TYPE_RED:
+            strcpy(dst, "Unlocked");
+            break;
+        case DECK_TYPE_BLUE:
+            sprintf(dst, "Items %d/20", MIN(discovered, 20));
+            break;
+        case DECK_TYPE_YELLOW:
+            sprintf(dst, "Items %d/50", MIN(discovered, 50));
+            break;
+        case DECK_TYPE_GREEN:
+            sprintf(dst, "Items %d/75", MIN(discovered, 75));
+            break;
+        case DECK_TYPE_BLACK:
+            sprintf(dst, "Items %d/100", MIN(discovered, 100));
+            break;
+        case DECK_TYPE_MAGIC:
+            sprintf(dst, "Red win %d/1", (g_profile.won_decks & (1u << DECK_TYPE_RED)) ? 1 : 0);
+            break;
+        case DECK_TYPE_NEBULA:
+            sprintf(dst, "Blue win %d/1", (g_profile.won_decks & (1u << DECK_TYPE_BLUE)) ? 1 : 0);
+            break;
+        case DECK_TYPE_GHOST:
+            sprintf(dst, "Yellow win %d/1", (g_profile.won_decks & (1u << DECK_TYPE_YELLOW)) ? 1 : 0);
+            break;
+        case DECK_TYPE_ABANDONED:
+            sprintf(dst, "Green win %d/1", (g_profile.won_decks & (1u << DECK_TYPE_GREEN)) ? 1 : 0);
+            break;
+        case DECK_TYPE_CHECKERED:
+            sprintf(dst, "Black win %d/1", (g_profile.won_decks & (1u << DECK_TYPE_BLACK)) ? 1 : 0);
+            break;
+        case DECK_TYPE_ZODIAC:
+            sprintf(dst, "Stake %d/1", MIN(g_profile.highest_stake_win, 1));
+            break;
+        case DECK_TYPE_PAINTED:
+            sprintf(dst, "Stake %d/2", MIN(g_profile.highest_stake_win, 2));
+            break;
+        case DECK_TYPE_ANAGLYPH:
+            sprintf(dst, "Stake %d/3", MIN(g_profile.highest_stake_win, 3));
+            break;
+        case DECK_TYPE_PLASMA:
+            sprintf(dst, "Stake %d/4", MIN(g_profile.highest_stake_win, 4));
+            break;
+        case DECK_TYPE_ERRATIC:
+            sprintf(dst, "Stake %d/5", MIN(g_profile.highest_stake_win, 5));
+            break;
+        default:
+            strcpy(dst, "");
+            break;
+    }
+}
+
+void game_draw_deck_select()
+{
+    graphics_clear(COLOR_BACKGROUND_2);
+
+    graphics_draw_solid_quad(0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BACKGROUND_2);
+    graphics_draw_text_center(font_big, "Choose Deck", SCREEN_WIDTH / 2.0f, 10.0f, 1.0f, COLOR_WHITE);
+    char summary[32];
+    sprintf(summary, "Items %d", profile_get_discovered_items_count());
+    graphics_draw_text(font_small, summary, 390.0f, 12.0f, 1.0f, COLOR_LIGHT_GREY);
+
+    int selected = CLAMP(g_game_state.highlighted_item, 0, DECK_TYPE_COUNT - 1);
+    for (int i = 0; i < DECK_TYPE_COUNT; i++)
+    {
+        int col = i % 3;
+        int row = i / 3;
+        float x = 24.0f + col * 144.0f;
+        float y = 34.0f + row * 30.0f;
+        bool unlocked = profile_is_deck_unlocked(i);
+        uint32_t box_color = (selected == i) ? COLOR_DARK_GREY : COLOR_DARK_GREY_2;
+        uint32_t text_color = unlocked ? COLOR_WHITE : COLOR_LIGHT_GREY;
+
+        graphics_draw_solid_quad(x, y, 128.0f, 24.0f, box_color);
+        if (selected == i)
+        {
+            graphics_draw_solid_quad(x - 2.0f, y - 2.0f, 132.0f, 2.0f, COLOR_TEXT_YELLOW);
+            graphics_draw_solid_quad(x - 2.0f, y + 24.0f, 132.0f, 2.0f, COLOR_TEXT_YELLOW);
+            graphics_draw_solid_quad(x - 2.0f, y, 2.0f, 24.0f, COLOR_TEXT_YELLOW);
+            graphics_draw_solid_quad(x + 128.0f, y, 2.0f, 24.0f, COLOR_TEXT_YELLOW);
+        }
+        game_draw_deck_back_preview(i, x + 5.0f, y + 3.0f, 12.0f, 16.0f, unlocked ? COLOR_WHITE : COLOR_WHITE);
+        graphics_draw_text_center(font_small, g_deck_types[i].name, x + 64.0f, y + 5.0f, 1.0f, text_color);
+        if (!unlocked)
+        {
+            graphics_draw_text_center(font_small, "Locked", x + 64.0f, y + 15.0f, 1.0f, COLOR_LIGHT_RED);
+        }
+    }
+
+    float info_x = 24.0f;
+    float info_y = 194.0f;
+    bool unlocked = profile_is_deck_unlocked(selected);
+    graphics_draw_solid_quad(info_x, info_y, SCREEN_WIDTH - 48.0f, 56.0f, COLOR_DARK_GREY_2);
+    game_draw_deck_back_preview(selected, info_x + 8.0f, info_y + 5.0f, 34.0f, 46.0f, COLOR_WHITE);
+
+    char progress[32];
+    game_get_deck_progress_text(selected, progress);
+
+    graphics_draw_text(font_small, g_deck_types[selected].name, info_x + 50.0f, info_y + 6.0f, 1.0f, unlocked ? COLOR_TEXT_YELLOW : COLOR_LIGHT_GREY);
+    for (int i = 0; i < 3; i++)
+    {
+        if (g_deck_types[selected].effect_lines[i][0] != '\0')
+        {
+            graphics_draw_text(font_small, g_deck_types[selected].effect_lines[i], info_x + 50.0f, info_y + 20.0f + i * 10.0f, 1.0f, COLOR_WHITE);
+        }
+    }
+
+    graphics_draw_text(font_small, progress, info_x + 238.0f, info_y + 8.0f, 1.0f, unlocked ? COLOR_LIGHT_BLUE : COLOR_LIGHT_RED);
+    graphics_draw_text(font_small, unlocked ? "X Start  O Back" : g_deck_types[selected].unlock_line, info_x + 238.0f, info_y + 30.0f, 1.0f, unlocked ? COLOR_LIGHT_GREY : COLOR_LIGHT_RED);
+    if (g_settings.debug_tools)
+    {
+        graphics_draw_text(font_small, "DBG L+R+X tier  L+R+O reset", 186.0f, 254.0f, 1.0f, COLOR_LIGHT_GREY);
+    }
+}
+
 void game_draw()
 {
     graphics_begin_draw();
@@ -2342,7 +2482,14 @@ void game_draw()
 
     if (g_game_state.stage == GAME_STAGE_TITLE)
     {
-        game_draw_title_menu();
+        if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_DECK_SELECT)
+        {
+            game_draw_deck_select();
+        }
+        else
+        {
+            game_draw_title_menu();
+        }
         if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_SETTINGS_MENU)
         {
             game_draw_settings_menu();

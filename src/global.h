@@ -123,6 +123,50 @@ extern const char *g_edition_hint[CARD_EDITION_COUNT];
 
 #define CARD_SEAL_COUNT     5
 
+#define DECK_TYPE_RED        0
+#define DECK_TYPE_BLUE       1
+#define DECK_TYPE_YELLOW     2
+#define DECK_TYPE_GREEN      3
+#define DECK_TYPE_BLACK      4
+#define DECK_TYPE_MAGIC      5
+#define DECK_TYPE_NEBULA     6
+#define DECK_TYPE_GHOST      7
+#define DECK_TYPE_ABANDONED  8
+#define DECK_TYPE_CHECKERED  9
+#define DECK_TYPE_ZODIAC     10
+#define DECK_TYPE_PAINTED    11
+#define DECK_TYPE_ANAGLYPH   12
+#define DECK_TYPE_PLASMA     13
+#define DECK_TYPE_ERRATIC    14
+
+#define DECK_TYPE_COUNT      15
+
+struct DeckType
+{
+    int type;
+    const char *name;
+    int u, v;
+    const char *effect_lines[3];
+    const char *unlock_line;
+};
+
+extern struct DeckType g_deck_types[DECK_TYPE_COUNT];
+
+struct Profile
+{
+    uint32_t unlocked_decks;
+    uint32_t won_decks;
+    uint32_t discovered_jokers[5];
+    uint32_t discovered_tarots;
+    uint32_t discovered_planets;
+    uint32_t discovered_spectrals;
+    uint32_t discovered_boosters;
+    uint32_t discovered_decks;
+    int highest_stake_win;
+};
+
+extern struct Profile g_profile;
+
 struct DrawObject
 {
     float x, y;
@@ -685,6 +729,7 @@ struct GameState
         INPUT_FOCUSED_ZONE_PAUSE_MENU     ,
         INPUT_FOCUSED_ZONE_SETTINGS_MENU  ,
         INPUT_FOCUSED_ZONE_TITLE_MENU     ,
+        INPUT_FOCUSED_ZONE_DECK_SELECT    ,
     } input_focused_zone, previous_input_focused_zone;
 
     // ingame
@@ -775,6 +820,8 @@ struct GameState
     bool flush_five_enabled;
     bool flush_house_enabled;
     bool five_of_a_kind_enabled;
+
+    int deck_type;
 
     struct
     {
@@ -940,7 +987,7 @@ void game_start_ingame();
 void game_go_to_next_blind();
 void game_start_ingame();
 void game_show_title_menu();
-void game_start_new_run();
+void game_start_new_run(int deck_type);
 
 void game_go_back_to_previous_stage();
 void game_go_to_stage(int stage, int sub_stage);
@@ -971,6 +1018,19 @@ bool run_load_utility();
 bool save_autosave_exists();
 bool save_write_autosave();
 bool save_load_autosave();
+void profile_load();
+bool profile_save();
+bool profile_is_deck_unlocked(int deck_type);
+void profile_discover_joker(int joker_type);
+void profile_discover_tarot(int tarot_type);
+void profile_discover_planet(int planet_type);
+void profile_discover_spectral(int spectral_type);
+void profile_discover_booster(int booster_type);
+void profile_discover_deck(int deck_type);
+int profile_get_discovered_items_count();
+void profile_debug_unlock_next_deck_tier();
+void profile_debug_lock_all_progress();
+void profile_mark_run_won(int deck_type);
 void game_remove_invalid_cards_full_deck();
 
 struct Card *game_set_new_card();

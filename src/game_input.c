@@ -825,7 +825,9 @@ void game_input_update_you_win_panel(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_CROSS))
     {
-        game_restart_game();
+        game_show_title_menu();
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_DECK_SELECT;
+        g_game_state.highlighted_item = CLAMP(g_game_state.deck_type, 0, DECK_TYPE_COUNT - 1);
     }
 }
 
@@ -835,7 +837,9 @@ void game_input_update_game_over_panel(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_CROSS))
     {
-        game_restart_game();
+        game_show_title_menu();
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_DECK_SELECT;
+        g_game_state.highlighted_item = CLAMP(g_game_state.deck_type, 0, DECK_TYPE_COUNT - 1);
     }
 }
 
@@ -1149,13 +1153,49 @@ void game_input_update_title_menu(bool no_input)
         }
         else if (g_game_state.highlighted_item == 2)
         {
-            game_start_new_run();
+            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_DECK_SELECT;
+            g_game_state.highlighted_item = DECK_TYPE_RED;
         }
         else if (g_game_state.highlighted_item == 3)
         {
             g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_SETTINGS_MENU;
             g_game_state.highlighted_item = 0;
         }
+    }
+}
+
+void game_input_update_deck_select(bool no_input)
+{
+    if (no_input) return;
+
+    if (input_was_button_pressed(INPUT_BUTTON_RIGHT))
+    {
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 1) % DECK_TYPE_COUNT;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_LEFT))
+    {
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + DECK_TYPE_COUNT - 1) % DECK_TYPE_COUNT;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_DOWN))
+    {
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + 3) % DECK_TYPE_COUNT;
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_UP))
+    {
+        g_game_state.highlighted_item = (g_game_state.highlighted_item + DECK_TYPE_COUNT - 3) % DECK_TYPE_COUNT;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_CROSS))
+    {
+        if (profile_is_deck_unlocked(g_game_state.highlighted_item))
+        {
+            game_start_new_run(g_game_state.highlighted_item);
+        }
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_TITLE_MENU;
+        g_game_state.highlighted_item = 2;
     }
 }
 
@@ -1365,6 +1405,33 @@ bool game_input_debug_update_edition()
     return true;
 }
 
+bool game_input_debug_update_decks()
+{
+    if (!g_settings.debug_tools) return false;
+    if (g_game_state.stage != GAME_STAGE_TITLE ||
+        g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_DECK_SELECT)
+    {
+        return false;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_CROSS))
+    {
+        profile_debug_unlock_next_deck_tier();
+    }
+    else if (input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+    {
+        profile_debug_lock_all_progress();
+        g_game_state.highlighted_item = DECK_TYPE_RED;
+    }
+    else
+    {
+        return false;
+    }
+
+    audio_play_sfx(AUDIO_SFX_BUTTON);
+    return true;
+}
+
 void game_input_update(bool no_input)
 {
     if (g_settings.debug_tools &&
@@ -1379,7 +1446,7 @@ void game_input_update(bool no_input)
 
     if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
         input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
-        (game_input_debug_update_seal() || game_input_debug_update_edition()))
+        (game_input_debug_update_decks() || game_input_debug_update_seal() || game_input_debug_update_edition()))
     {
         return;
     }
@@ -1405,6 +1472,9 @@ void game_input_update(bool no_input)
     {
         case INPUT_FOCUSED_ZONE_TITLE_MENU:
             game_input_update_title_menu(no_input);
+            break;
+        case INPUT_FOCUSED_ZONE_DECK_SELECT:
+            game_input_update_deck_select(no_input);
             break;
         case INPUT_FOCUSED_ZONE_HAND:
             game_input_update_hand(no_input);

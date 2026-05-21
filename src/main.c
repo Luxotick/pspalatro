@@ -42,6 +42,7 @@ void load_audio_sfx()
 bool init_more_stuff()
 {
     if (!game_init_load_file_values()) return false;
+    profile_load();
 
     if (g_settings.overclock)
     {
