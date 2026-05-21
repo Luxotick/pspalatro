@@ -116,3 +116,29 @@ The `settings.ini` file can have the following entries:
 - `overclock` - boolean - set the CPU and BUS clocks to 333MHz. This should be fine for the PSP, but it may drain the battery faster
 - `ante_score_scaling` - int - how the ante score scales, values from 1 to 3
 - `speed` - int - how fast scoring is, values from 1 to 5
+
+## Debug Mode Keybindings
+
+To use these bindings, **Debug Tools** (`debug_tools`) must first be enabled either through the in-game settings menu or by setting `debug_tools = true` in your `settings.ini`. Almost all debug commands require you to hold down both the **Left Trigger (L)** and **Right Trigger (R)** on the PSP while pressing a face button.
+
+### 1. Modifying Game Progression (Deck Select Menu)
+**Condition to use:** You must be on the Title Screen, currently focused on the **Deck Selection** menu.
+*   **`L` + `R` + `Cross (X)`**: Unlocks the next deck tier.
+    *   *When to use:* Use this when you are testing gameplay with advanced deck types but don't want to play through the standard unlock progression.
+*   **`L` + `R` + `Circle (O)`**: Locks all deck progress and resets you to the default state (Red Deck).
+    *   *When to use:* Use this to test the "fresh save file" experience or to verify if deck unlock conditions are working properly.
+
+### 2. Modifying Individual Cards (In-Game)
+**Condition to use:** You must be actively in a match, picking your hand, and highlighting a specific card in your active hand.
+*   **`L` + `R` + `Square`**: Cycles through the available **Card Seals** (e.g., Red, Blue, Gold, Purple) for the highlighted card.
+    *   *When to use:* Use this to easily test seal-specific effects or interactions without relying on random shop RNG or Tarot/Spectral cards.
+*   **`L` + `R` + `Circle (O)`**: Removes the **Card Seal** from the highlighted card entirely.
+    *   *When to use:* Use this to revert a card to its base state while testing seal modifiers.
+*   **`L` + `R` + `Cross (X)`**: Cycles through the different **Card Editions** (e.g., Foil, Holographic, Polychrome).
+    *   *When to use:* Use this to quickly buff a hand to test scoring capabilities, or to ensure that special edition shaders (like Foil or Holographic) are rendering properly on the hardware.
+
+### 3. Visual & UI Testing (Anywhere)
+**Condition to use:** Can be triggered at any time during gameplay or menus.
+*   **`L` + `R` + `Triangle`**: Toggles **"Force Score Flames"**.
+    *   *When to use:* This forces the game to display the intense flame visual effects on the score. It is primarily used for debugging the visual rendering (e.g., shaders, particles) or testing the PSP's performance/frame rate under high visual stress.
+
