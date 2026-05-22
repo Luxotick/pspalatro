@@ -10,6 +10,16 @@ This repository is based on a fork of the original PSPalatro project by [interna
 This is a limited implementation of the game **Balatro** for **Sony's Playstation Portable** console.  
 The project is for legitimate owners of a **Balatro** copy who wish to experience a partial implementation of the game on the PSP.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/ss1.png" width="48%" />
+  <img src="screenshots/ss2.png" width="48%" />
+  <img src="screenshots/ss3.png" width="48%" />
+  <img src="screenshots/ss4.png" width="48%" />
+  <img src="screenshots/ss5.png" width="48%" />
+</p>
+
 ## Disclaimer
 
 **This project is not endorsed or affiliated with LocalThunk or Playstack.**  
