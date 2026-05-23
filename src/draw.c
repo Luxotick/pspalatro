@@ -1984,10 +1984,9 @@ int game_draw_get_blind_reward(int blind)
 static void game_draw_blind_tag_icon(int tag_type, float x, float y, float size, uint32_t color)
 {
     (void)tag_type;
-    (void)x;
-    (void)y;
-    (void)size;
-    (void)color;
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(x, y, size, size, color);
+    graphics_draw_solid_quad(x + 3.0f, y + 3.0f, size - 6.0f, size - 6.0f, COLOR_TEXT_YELLOW);
     return;
 #if 0
     if (tag_type < 0 || tag_type >= BLIND_TAG_COUNT) return;
@@ -2106,7 +2105,7 @@ void game_draw_blind_select()
         y += 10;
         game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
-        if (false && i != GAME_BLIND_BOSS)
+        if (i != GAME_BLIND_BOSS)
         {
             int tag_type = g_game_state.blind_tags[i];
             bool current = i == g_game_state.blind && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_BLIND;
