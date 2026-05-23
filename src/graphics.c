@@ -867,10 +867,10 @@ void graphics_draw_rotated_quad(float x, float y, float w, float h, int16_t u, i
         int tex_width = g_textures[g_current_set_texture].width;
         int tex_height = g_textures[g_current_set_texture].height;
 
-        u = u * INT16_MAX / tex_width;
-        v = v * INT16_MAX / tex_height;
-        uw = uw * INT16_MAX / tex_width;
-        vh = vh * INT16_MAX / tex_height;
+        u = u * 32768 / tex_width;
+        v = v * 32768 / tex_height;
+        uw = uw * 32768 / tex_width;
+        vh = vh * 32768 / tex_height;
     }
 
     float w2 = w / 2.0f;
@@ -924,10 +924,10 @@ void graphics_draw_quad(float x, float y, float w, float h, int16_t u, int16_t v
             tex_height = g_textures[g_current_set_texture].height;
         }
 
-        u = u * INT16_MAX / tex_width;
-        v = v * INT16_MAX / tex_height;
-        uw = uw * INT16_MAX / tex_width;
-        vh = vh * INT16_MAX / tex_height;
+        u = u * 32768 / tex_width;
+        v = v * 32768 / tex_height;
+        uw = uw * 32768 / tex_width;
+        vh = vh * 32768 / tex_height;
     }
 
     g_quad_vertices[index+0].x = x;     g_quad_vertices[index+0].y = y;      g_quad_vertices[index+0].z = 0;
