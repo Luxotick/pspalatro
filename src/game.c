@@ -82,6 +82,33 @@ struct BossBlindType g_boss_blind_types[BOSS_BLIND_COUNT] = {
     { BOSS_BLIND_CERULEAN_BELL, "Cerulean Bell",  "Forces 1 card selected", "Forces 1 card", "selected", 8, 2.0, 8, true }
 };
 
+struct BlindTagType g_blind_tag_types[BLIND_TAG_COUNT] = {
+    { "Uncommon Tag",     { "Shop has a free", "Uncommon Joker", "" }, 0, 0, 1 },
+    { "Rare Tag",         { "Shop has a free", "Rare Joker", "" }, 1, 0, 1 },
+    { "Negative Tag",     { "Next base edition shop", "Joker is free and", "becomes Negative" }, 2, 0, 2 },
+    { "Foil Tag",         { "Next base edition shop", "Joker is free and", "becomes Foil" }, 3, 0, 1 },
+    { "Holographic Tag",  { "Next base edition shop", "Joker is free and", "becomes Holographic" }, 0, 1, 1 },
+    { "Polychrome Tag",   { "Next base edition shop", "Joker is free and", "becomes Polychrome" }, 1, 1, 1 },
+    { "Investment Tag",   { "After defeating", "the Boss Blind,", "gain $25" }, 2, 1, 1 },
+    { "Voucher Tag",      { "Adds one Voucher", "to the next shop", "" }, 3, 1, 1 },
+    { "Boss Tag",         { "Rerolls the", "Boss Blind", "" }, 0, 2, 1 },
+    { "Standard Tag",     { "Gives a free", "Mega Standard Pack", "" }, 1, 2, 2 },
+    { "Charm Tag",        { "Gives a free", "Mega Arcana Pack", "" }, 2, 2, 1 },
+    { "Meteor Tag",       { "Gives a free", "Mega Celestial Pack", "" }, 3, 2, 2 },
+    { "Buffoon Tag",      { "Gives a free", "Mega Buffoon Pack", "" }, 4, 2, 2 },
+    { "Handy Tag",        { "Gives $1 per played", "hand this run", "" }, 1, 3, 2 },
+    { "Garbage Tag",      { "Gives $1 per unused", "discard this run", "" }, 2, 3, 2 },
+    { "Ethereal Tag",     { "Gives a free", "Spectral Pack", "" }, 3, 3, 2 },
+    { "Coupon Tag",       { "Initial cards and", "booster packs in next", "shop are free" }, 4, 0, 1 },
+    { "Double Tag",       { "Gives a copy of the", "next selected Tag", "Double Tag excluded" }, 5, 0, 1 },
+    { "Juggle Tag",       { "+3 hand size", "next round", "" }, 5, 1, 1 },
+    { "D6 Tag",           { "Rerolls in next shop", "start at $0", "" }, 5, 3, 1 },
+    { "Top-up Tag",       { "Create up to 2", "Common Jokers", "Must have room" }, 4, 1, 2 },
+    { "Speed Tag",        { "Gives $5 per skipped", "Blind this run", "" }, 0, 3, 1 },
+    { "Orbital Tag",      { "Upgrade a poker hand", "by 3 levels", "" }, 5, 2, 2 },
+    { "Economy Tag",      { "Doubles your money", "Max of $40", "" }, 4, 3, 1 }
+};
+
 char *g_poker_hand_names[GAME_POKER_HAND_COUNT] = 
 {
     "",                 // GAME_POKER_HAND_NONE
@@ -551,6 +578,50 @@ void game_select_new_boss_blind()
     }
 
     g_game_state.boss_blind_type = candidate_count > 0 ? candidates[game_util_rand(0, candidate_count - 1)] : BOSS_BLIND_HOOK;
+}
+
+static int game_get_next_blind_tag()
+{
+    int candidates[BLIND_TAG_COUNT];
+    int candidate_count = 0;
+    for (int i = 0; i < BLIND_TAG_COUNT; i++)
+    {
+        if (g_game_state.ante < g_blind_tag_types[i].min_ante) continue;
+        if (strcmp(g_blind_tag_types[i].name, "Speed Tag") &&
+            strcmp(g_blind_tag_types[i].name, "Economy Tag") &&
+            strcmp(g_blind_tag_types[i].name, "Boss Tag"))
+        {
+            continue;
+        }
+        candidates[candidate_count++] = i;
+    }
+    return candidate_count > 0 ? candidates[game_util_rand(0, candidate_count - 1)] : 0;
+}
+
+static void game_select_new_blind_tags()
+{
+    g_game_state.blind_tags[GAME_BLIND_SMALL] = game_get_next_blind_tag();
+    g_game_state.blind_tags[GAME_BLIND_LARGE] = game_get_next_blind_tag();
+    g_game_state.blind_tags[GAME_BLIND_BOSS] = -1;
+}
+
+static void game_apply_skip_tag(int tag_type)
+{
+    if (tag_type < 0 || tag_type >= BLIND_TAG_COUNT) return;
+
+    g_game_state.skipped_blinds++;
+    if (!strcmp(g_blind_tag_types[tag_type].name, "Speed Tag"))
+    {
+        g_game_state.wealth += g_game_state.skipped_blinds * 5;
+    }
+    else if (!strcmp(g_blind_tag_types[tag_type].name, "Economy Tag"))
+    {
+        g_game_state.wealth += MIN(g_game_state.wealth, 40);
+    }
+    else if (!strcmp(g_blind_tag_types[tag_type].name, "Boss Tag"))
+    {
+        game_select_new_boss_blind();
+    }
 }
 
 void game_init_joker(struct Joker *joker)
@@ -2047,6 +2118,10 @@ void game_init_logic()
     g_game_state.ante = 1;
     g_game_state.blind = GAME_BLIND_SMALL;
     game_select_new_boss_blind();
+    game_select_new_blind_tags();
+    g_game_state.blind_focused_action = BLIND_ACTION_SELECT;
+    g_game_state.blind_tag_description_open = false;
+    g_game_state.skipped_blinds = 0;
     g_game_state.boss_played_hand_mask = 0;
     g_game_state.boss_verdant_leaf_joker_sold = false;
     g_game_state.boss_forced_selected_card_index = -1;
@@ -2217,6 +2292,8 @@ void game_go_to_next_blind()
 {
     g_game_state.stage = GAME_STAGE_BLINDS;
     g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_BLIND;
+    g_game_state.blind_focused_action = BLIND_ACTION_SELECT;
+    g_game_state.blind_tag_description_open = false;
     g_game_state.blind++;
     if (g_game_state.blind > GAME_BLIND_BOSS)
     {
@@ -2224,7 +2301,16 @@ void game_go_to_next_blind()
         g_game_state.ante++;
         game_reset_cards_played_this_ante();
         game_select_new_boss_blind();
+        game_select_new_blind_tags();
     }
+}
+
+void game_skip_current_blind()
+{
+    if (g_game_state.blind == GAME_BLIND_BOSS) return;
+
+    game_apply_skip_tag(g_game_state.blind_tags[g_game_state.blind]);
+    game_go_to_next_blind();
 }
 
 #define CHANCE_JOKER_SHOP_SINGLE 71

@@ -3,7 +3,7 @@
 #define TEXTURE_CARD_WIDTH  69
 #define TEXTURE_CARD_HEIGHT 93
 
-int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets;
+int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets, tex_tags;
 int tex_blind_chips[2][2];
 int tex_jokers[2][4];
 int tex_tarots[2][2];
@@ -185,6 +185,9 @@ bool game_init_draw()
 
     tex_ui_assets = graphics_load_texture_from_archive_16bit("resources/textures/1x/ui_assets.png", 0, 0);
     if (tex_ui_assets < 0) return false;
+
+    tex_tags = graphics_load_texture_from_archive_16bit("resources/textures/1x/tags.png", 0, 0);
+    if (tex_tags < 0) return false;
 
     struct Image chips_image = graphics_load_image_from_archive("resources/textures/1x/BlindChips.png");
     if (chips_image.data == NULL) return false;
@@ -1981,6 +1984,50 @@ int game_draw_get_blind_reward(int blind)
     }
 }
 
+static void game_draw_blind_tag_icon(int tag_type, float x, float y, float size, uint32_t color)
+{
+    if (tag_type < 0 || tag_type >= BLIND_TAG_COUNT) return;
+
+    graphics_set_texture(tex_tags, GRAPHICS_TEXTURE_FILTER_NEAREST);
+    graphics_draw_quad(x, y, size, size, g_blind_tag_types[tag_type].tex_x * 34, g_blind_tag_types[tag_type].tex_y * 34, 34, 34, color);
+}
+
+static void game_draw_blind_action_button(float x, float y, float w, const char *text, bool selected, bool enabled)
+{
+    uint32_t color = enabled ? COLOR_RED_BUTTON : COLOR_DARK_GREY;
+    graphics_set_no_texture();
+    if (selected)
+    {
+        graphics_draw_solid_quad(x - 2.0f, y - 2.0f, w + 4.0f, 18.0f, COLOR_WHITE);
+    }
+    graphics_draw_solid_quad(x, y, w, 14.0f, color);
+    game_draw_text_fit_center(font_small, text, x + w / 2.0f, y + 7.0f, w - 4.0f, 0.75f, enabled ? COLOR_WHITE : COLOR_LIGHT_GREY_2);
+}
+
+static void game_draw_blind_tag_popup()
+{
+    if (!g_game_state.blind_tag_description_open || g_game_state.blind == GAME_BLIND_BOSS) return;
+
+    int tag_type = g_game_state.blind_tags[g_game_state.blind];
+    if (tag_type < 0 || tag_type >= BLIND_TAG_COUNT) return;
+
+    float x = 282.0f;
+    float y = 88.0f;
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(x - 2.0f, y - 2.0f, 178.0f, 82.0f, COLOR_WHITE);
+    graphics_draw_solid_quad(x, y, 174.0f, 78.0f, COLOR_DARK_GREY_2);
+    graphics_draw_solid_quad(x + 2.0f, y + 2.0f, 170.0f, 74.0f, COLOR_DARK_GREY);
+
+    game_draw_blind_tag_icon(tag_type, x + 7.0f, y + 7.0f, 24.0f, COLOR_WHITE);
+    game_draw_text_fit(font_big, g_blind_tag_types[tag_type].name, x + 36.0f, y + 11.0f, 128.0f, 1.0f, COLOR_WHITE);
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (g_blind_tag_types[tag_type].description[i][0] == '\0') continue;
+        game_draw_text_fit(font_small, g_blind_tag_types[tag_type].description[i], x + 8.0f, y + 40.0f + i * 10.0f, 158.0f, 1.0f, COLOR_WHITE);
+    }
+}
+
 void game_draw_blind_select()
 {
     char str[32];
@@ -2054,6 +2101,33 @@ void game_draw_blind_select()
         y += 10;
         game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
+        if (i != GAME_BLIND_BOSS)
+        {
+            int tag_type = g_game_state.blind_tags[i];
+            bool current = i == g_game_state.blind && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_BLIND;
+            bool enabled = i == g_game_state.blind;
+            float action_y = 233.0f;
+
+            graphics_draw_text_center(font_small, "or", x + 45.0f, action_y - 8.0f, 1.0f, enabled ? COLOR_WHITE : COLOR_LIGHT_GREY_2);
+
+            if (current && g_game_state.blind_focused_action == BLIND_ACTION_TAG)
+            {
+                graphics_set_no_texture();
+                graphics_draw_solid_quad(x + 7.0f, action_y - 2.0f, 24.0f, 24.0f, COLOR_WHITE);
+            }
+            graphics_set_no_texture();
+            graphics_draw_solid_quad(x + 9.0f, action_y, 20.0f, 20.0f, enabled ? COLOR_LIGHT_GREY_2 : COLOR_DARK_GREY_2);
+            game_draw_blind_tag_icon(tag_type, x + 10.0f, action_y + 1.0f, 18.0f, enabled ? COLOR_WHITE : 0x88666666);
+
+            game_draw_blind_action_button(
+                x + 34.0f,
+                action_y + 3.0f,
+                48.0f,
+                "Skip",
+                current && g_game_state.blind_focused_action == BLIND_ACTION_SKIP,
+                enabled);
+        }
+
         if (i != g_game_state.blind)
         {
             graphics_set_no_texture();
@@ -2066,6 +2140,8 @@ void game_draw_blind_select()
     game_draw_top_jokers();
 
     game_draw_consumables();
+
+    game_draw_blind_tag_popup();
 
     game_draw_score_number();
 }

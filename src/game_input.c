@@ -406,15 +406,45 @@ void game_input_update_blind(bool no_input)
 {
     if (!no_input)
     {
+        if (g_game_state.blind_tag_description_open)
+        {
+            if (input_was_button_pressed(INPUT_BUTTON_CROSS) ||
+                input_was_button_pressed(INPUT_BUTTON_CIRCLE))
+            {
+                g_game_state.blind_tag_description_open = false;
+                audio_play_sfx(AUDIO_SFX_CANCEL);
+            }
+            return;
+        }
+
         if (input_was_button_pressed(INPUT_BUTTON_CROSS))
         {
-            // Start Blind
-            automated_event_push(AUTOMATED_EVENT_SELECT_BLIND, 0);
+            if (g_game_state.blind_focused_action == BLIND_ACTION_SKIP &&
+                g_game_state.blind != GAME_BLIND_BOSS)
+            {
+                game_skip_current_blind();
+                audio_play_sfx(AUDIO_SFX_BUTTON);
+            }
+            else if (g_game_state.blind_focused_action == BLIND_ACTION_TAG &&
+                     g_game_state.blind != GAME_BLIND_BOSS)
+            {
+                g_game_state.blind_tag_description_open = true;
+                audio_play_sfx(AUDIO_SFX_BUTTON);
+            }
+            else
+            {
+                automated_event_push(AUTOMATED_EVENT_SELECT_BLIND, 0);
+            }
         }
 
         if (input_was_button_pressed(INPUT_BUTTON_UP))
         {
-            if (g_game_state.jokers.joker_count > 0)
+            if (g_game_state.blind_focused_action != BLIND_ACTION_SELECT)
+            {
+                g_game_state.blind_focused_action = BLIND_ACTION_SELECT;
+                audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+            }
+            else if (g_game_state.jokers.joker_count > 0)
             {
                 g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_JOKERS;
                 g_game_state.highlighted_item = 0;
@@ -426,13 +456,46 @@ void game_input_update_blind(bool no_input)
             }
         }
 
+        if (input_was_button_pressed(INPUT_BUTTON_DOWN) &&
+            g_game_state.blind != GAME_BLIND_BOSS)
+        {
+            g_game_state.blind_focused_action = BLIND_ACTION_TAG;
+            audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+        }
+
         if (input_was_button_pressed(INPUT_BUTTON_RIGHT))
         {
-            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_DECK;
+            if (g_game_state.blind_focused_action == BLIND_ACTION_TAG)
+            {
+                g_game_state.blind_focused_action = BLIND_ACTION_SKIP;
+                audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+            }
+            else if (g_game_state.blind_focused_action == BLIND_ACTION_SKIP)
+            {
+                g_game_state.blind_focused_action = BLIND_ACTION_TAG;
+                audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+            }
+            else
+            {
+                g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_DECK;
+            }
         }
         else if (input_was_button_pressed(INPUT_BUTTON_LEFT))
         {
-            g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_RUN_INFO;
+            if (g_game_state.blind_focused_action == BLIND_ACTION_TAG)
+            {
+                g_game_state.blind_focused_action = BLIND_ACTION_SKIP;
+                audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+            }
+            else if (g_game_state.blind_focused_action == BLIND_ACTION_SKIP)
+            {
+                g_game_state.blind_focused_action = BLIND_ACTION_TAG;
+                audio_play_sfx(AUDIO_SFX_HIGHLIGHT);
+            }
+            else
+            {
+                g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_RUN_INFO;
+            }
         }
     }
 }
