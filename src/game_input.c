@@ -1456,7 +1456,6 @@ bool game_input_debug_update_decks()
     return true;
 }
 
-#ifdef DEBUG_MODE
 bool game_input_debug_update_boss_blind()
 {
     if (!g_settings.debug_tools) return false;
@@ -1513,7 +1512,6 @@ bool game_input_debug_update_spectral_boosters()
 
     return false;
 }
-#endif
 
 void game_input_update(bool no_input)
 {
@@ -1530,9 +1528,7 @@ void game_input_update(bool no_input)
     if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
         input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
         (game_input_debug_update_decks() || game_input_debug_update_seal() || game_input_debug_update_edition()
-#ifdef DEBUG_MODE
          || game_input_debug_update_boss_blind() || game_input_debug_update_spectral_boosters()
-#endif
         ))
     {
         return;
