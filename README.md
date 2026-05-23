@@ -152,3 +152,7 @@ To use these bindings, **Debug Tools** (`debug_tools`) must first be enabled eit
 *   **`L` + `R` + `Triangle`**: Toggles **"Force Score Flames"**.
     *   *When to use:* This forces the game to display the intense flame visual effects on the score. It is primarily used for debugging the visual rendering (e.g., shaders, particles) or testing the PSP's performance/frame rate under high visual stress.
 
+### 4. Debug Build Test Hooks
+**Condition to use:** Requires a `DEBUG=1` build and **Debug Tools** enabled.
+*   **`L` + `R` + `Start`** on the Blind select screen: jumps to the Boss Blind and cycles the current Boss Blind.
+*   **`L` + `R` + `Start`** in the shop: turns all booster packs into Mega Spectral Packs.
