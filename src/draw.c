@@ -3,7 +3,7 @@
 #define TEXTURE_CARD_WIDTH  69
 #define TEXTURE_CARD_HEIGHT 93
 
-int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets, tex_tags;
+int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets;
 int tex_blind_chips[2][2];
 int tex_jokers[2][4];
 int tex_tarots[2][2];
@@ -185,9 +185,6 @@ bool game_init_draw()
 
     tex_ui_assets = graphics_load_texture_from_archive_16bit("resources/textures/1x/ui_assets.png", 0, 0);
     if (tex_ui_assets < 0) return false;
-
-    tex_tags = graphics_load_texture_from_archive_16bit("resources/textures/1x/tags.png", 0, 0);
-    if (tex_tags < 0) return false;
 
     struct Image chips_image = graphics_load_image_from_archive("resources/textures/1x/BlindChips.png");
     if (chips_image.data == NULL) return false;
@@ -1986,10 +1983,18 @@ int game_draw_get_blind_reward(int blind)
 
 static void game_draw_blind_tag_icon(int tag_type, float x, float y, float size, uint32_t color)
 {
+    (void)tag_type;
+    (void)x;
+    (void)y;
+    (void)size;
+    (void)color;
+    return;
+#if 0
     if (tag_type < 0 || tag_type >= BLIND_TAG_COUNT) return;
 
     graphics_set_texture(tex_tags, GRAPHICS_TEXTURE_FILTER_NEAREST);
     graphics_draw_quad(x, y, size, size, g_blind_tag_types[tag_type].tex_x * 34, g_blind_tag_types[tag_type].tex_y * 34, 34, 34, color);
+#endif
 }
 
 static void game_draw_blind_action_button(float x, float y, float w, const char *text, bool selected, bool enabled)
@@ -2101,7 +2106,7 @@ void game_draw_blind_select()
         y += 10;
         game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
-        if (i != GAME_BLIND_BOSS)
+        if (false && i != GAME_BLIND_BOSS)
         {
             int tag_type = g_game_state.blind_tags[i];
             bool current = i == g_game_state.blind && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_BLIND;
