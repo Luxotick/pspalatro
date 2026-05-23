@@ -58,11 +58,14 @@ Not all implemented rules match the original game exactly. Some of them were adj
 - Sound effects for UI, scoring, shop and card actions
 - Save-safe audio callback handling for native PSP save dialogs
 - Natural negative jokers
+- Boss blinds, including showdown boss blinds and blind-specific effects
+- Blind select and in-round info panels with readable boss blind details
 
 ### Currently being worked on / planned:
 
-- Bug fixes and stability improvements
-- More gameplay polishing
+- Remaining rule parity fixes and edge-case boss blind interactions
+- More gameplay and UI polishing
+- Performance and audio stability improvements
 - Additional updates based on feedback and available time
 
 ## Special Thanks

@@ -1336,6 +1336,17 @@ static void game_draw_text_fit(int font, const char *text, float x, float y, flo
     graphics_draw_text(font, text, x, y, scale, color);
 }
 
+static void game_draw_text_fit_min(int font, const char *text, float x, float y, float max_width, float size, float min_scale, uint32_t color)
+{
+    float width = strlen(text) * game_draw_get_font_char_width(font) * size;
+    float scale = size;
+    if (width > max_width && width > 0.0f)
+    {
+        scale = MAX(min_scale, max_width / (strlen(text) * game_draw_get_font_char_width(font)));
+    }
+    graphics_draw_text(font, text, x, y, scale, color);
+}
+
 static void game_draw_text_fit_center(int font, const char *text, float x, float y, float max_width, float size, uint32_t color)
 {
     float width = strlen(text) * game_draw_get_font_char_width(font) * size;
@@ -1343,6 +1354,17 @@ static void game_draw_text_fit_center(int font, const char *text, float x, float
     if (width > max_width && width > 0.0f)
     {
         scale = MAX(0.60f, max_width / (strlen(text) * game_draw_get_font_char_width(font)));
+    }
+    graphics_draw_text_center(font, text, x, y, scale, color);
+}
+
+static void game_draw_text_fit_center_min(int font, const char *text, float x, float y, float max_width, float size, float min_scale, uint32_t color)
+{
+    float width = strlen(text) * game_draw_get_font_char_width(font) * size;
+    float scale = size;
+    if (width > max_width && width > 0.0f)
+    {
+        scale = MAX(min_scale, max_width / (strlen(text) * game_draw_get_font_char_width(font)));
     }
     graphics_draw_text_center(font, text, x, y, scale, color);
 }
@@ -1460,24 +1482,25 @@ void game_draw_left_info()
             }
             int frame = (g_game_counter / 4) % 21;
             graphics_set_texture(tex_blind_chips[frame/15][blind_row/15], GRAPHICS_TEXTURE_FILTER_NEAREST);
-            graphics_draw_quad(7, y - 2, 28, 28, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
+            graphics_draw_quad((DRAW_LEFT_INFO_WIDTH / 2.0f) - 17.0f + 2.0f, y, 34, 34, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
             graphics_set_no_texture();
+            y += 38;
 
             switch (g_game_state.blind)
             {
                 case GAME_BLIND_SMALL:
                 case GAME_BLIND_LARGE:
                 case GAME_BLIND_BOSS:
-                    game_draw_text_fit(font_small, game_util_get_blind_name(g_game_state.blind), 38, y, 54, 1.0f, COLOR_WHITE);
+                    game_draw_text_fit_min(font_big, game_util_get_blind_name(g_game_state.blind), 6, y, DRAW_LEFT_INFO_WIDTH - 10.0f, 1.0f, 0.85f, COLOR_WHITE);
                     break;
             }
-            y += 10;
-            graphics_draw_text(font_small, "Score req.", 38, y, 1.0f, COLOR_WHITE);
+            y += 12;
+            graphics_draw_text(font_small, "Score at least", 6, y, 1.0f, COLOR_WHITE);
             y += 8;
             graphics_set_texture(tex_ui_assets, GRAPHICS_TEXTURE_FILTER_NEAREST);
-            graphics_draw_quad(38, y - 1, 10, 10, g_ui_assets_tex_coords[UI_ASSETS_CHIP].x, g_ui_assets_tex_coords[UI_ASSETS_CHIP].y, 18, 18, COLOR_WHITE);
+            graphics_draw_quad(6, y - 1, 10, 10, g_ui_assets_tex_coords[UI_ASSETS_CHIP].x, g_ui_assets_tex_coords[UI_ASSETS_CHIP].y, 18, 18, COLOR_WHITE);
             game_draw_format_score_value(str, sizeof(str), game_get_current_blind_score());
-            game_draw_text_fit(font_small, str, 50, y, 42, 1.0f, COLOR_LIGHT_RED);
+            game_draw_text_fit(font_small, str, 18, y, DRAW_LEFT_INFO_WIDTH - 22.0f, 1.0f, COLOR_LIGHT_RED);
             y += 20;
 
             break;
@@ -1557,8 +1580,8 @@ void game_draw_left_info()
     graphics_set_no_texture();
     graphics_draw_quad(4, y - 4, DRAW_LEFT_INFO_WIDTH - 4, 32, 0, 0, 0, 0, COLOR_DARK_GREY_2);    
 
-    game_draw_text_fit_center(font_small, "Hands", 2.0f + DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4, 38.0f, 1.0f, COLOR_WHITE);
-    game_draw_text_fit_center(font_small, "Discards", 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 38.0f, 1.0f, COLOR_WHITE);
+    game_draw_text_fit_center(font_small, "Hands", 2.0f + DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4, 42.0f, 1.0f, COLOR_WHITE);
+    game_draw_text_fit_center_min(font_small, "Discards", 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 46.0f, 1.0f, 0.90f, COLOR_WHITE);
     y += 15;
     graphics_set_no_texture();
     graphics_draw_quad(8, y - 2, (DRAW_LEFT_INFO_WIDTH / 2.0f) - 8, 11, 0, 0, 0, 0, COLOR_DARK_GREY);
@@ -1593,7 +1616,7 @@ void game_draw_left_info()
     sprintf(str, "%d", g_game_state.round);
     graphics_draw_text_center(font_small, str, 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 1.0f, COLOR_TEXT_ORANGE);
     
-    y += 20;
+    y += 15;
     if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_RUN_INFO)
     {
         graphics_draw_solid_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 24.0f, COLOR_WHITE);        
@@ -1971,16 +1994,16 @@ void game_draw_blind_select()
     {
         graphics_set_no_texture();
 
-        int y = 90;
+        int y = 84;
 
         if (i == g_game_state.blind && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_BLIND)
         {
-            graphics_draw_quad(x - 2, y - 2, 94, SCREEN_HEIGHT - 88, 0, 0, 0, 0, COLOR_WHITE);
+            graphics_draw_quad(x - 2, y - 2, 94, SCREEN_HEIGHT - 82, 0, 0, 0, 0, COLOR_WHITE);
         }
         
-        graphics_draw_quad(x, y, 90, SCREEN_HEIGHT - 90, 0, 0, 0, 0, COLOR_DARK_GREY);
+        graphics_draw_quad(x, y, 90, SCREEN_HEIGHT - 84, 0, 0, 0, 0, COLOR_DARK_GREY);
 
-        y += 6;
+        y += 5;
         int blind_row = 0;
         if (i == GAME_BLIND_SMALL) blind_row = 0;
         else if (i == GAME_BLIND_LARGE) blind_row = 1;
@@ -1994,26 +2017,26 @@ void game_draw_blind_select()
         
         int frame = (g_game_counter / 4) % 21;
         graphics_set_texture(tex_blind_chips[frame/15][blind_row/15], GRAPHICS_TEXTURE_FILTER_NEAREST);
-        graphics_draw_quad(x + 28, y, 34, 34, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
+        graphics_draw_quad(x + 30, y, 30, 30, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
         graphics_set_no_texture();
 
-        y += 38;
-        graphics_draw_text(font_small, game_util_get_blind_name(i), x + 2, y, 1.0f, COLOR_WHITE);
+        y += 34;
+        game_draw_text_fit(font_small, game_util_get_blind_name(i), x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
-        y += 12;
+        y += 11;
         graphics_draw_text(font_small, "Score at least", x + 2, y, 1.0f, COLOR_WHITE);
 
-        y += 10;
+        y += 9;
         graphics_set_texture(tex_ui_assets, GRAPHICS_TEXTURE_FILTER_NEAREST);
         graphics_draw_quad(x + 2, y - 1, 10, 10, g_ui_assets_tex_coords[UI_ASSETS_CHIP].x, g_ui_assets_tex_coords[UI_ASSETS_CHIP].y, 18, 18, COLOR_WHITE);
         game_draw_format_score_value(str, sizeof(str), game_get_blind_score(i));
-        graphics_draw_text(font_small, str, x + 14, y, 1.0f, COLOR_LIGHT_RED);
-
-        y += 12;
-        sprintf(str, "Reward $%d", game_draw_get_blind_reward(i));
-        graphics_draw_text(font_small, str, x + 2, y, 0.8f, COLOR_YELLOW);
+        game_draw_text_fit(font_small, str, x + 14, y, 72.0f, 1.0f, COLOR_LIGHT_RED);
 
         y += 14;
+        sprintf(str, "Reward $%d", game_draw_get_blind_reward(i));
+        game_draw_text_fit(font_small, str, x + 2, y, 84.0f, 1.0f, COLOR_YELLOW);
+
+        y += 16;
         const char *effect_line_1 = "";
         const char *effect_line_2 = "";
         if (i == GAME_BLIND_BOSS &&
@@ -2025,16 +2048,16 @@ void game_draw_blind_select()
         }
         else
         {
-            effect_line_1 = game_util_get_blind_effect(i);
+            effect_line_1 = "No effect";
         }
-        graphics_draw_text(font_small, effect_line_1, x + 2, y, 0.55f, COLOR_WHITE);
-        y += 8;
-        graphics_draw_text(font_small, effect_line_2, x + 2, y, 0.55f, COLOR_WHITE);
+        game_draw_text_fit(font_small, effect_line_1, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
+        y += 10;
+        game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
         if (i != g_game_state.blind)
         {
             graphics_set_no_texture();
-            graphics_draw_quad(x, 90, 90, SCREEN_HEIGHT - 90, 0, 0, 0, 0, 0xAA666666);
+            graphics_draw_quad(x, 84, 90, SCREEN_HEIGHT - 84, 0, 0, 0, 0, 0xAA666666);
         }
 
         x += 108;
