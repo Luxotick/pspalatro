@@ -384,12 +384,6 @@ static bool save_unpack_game_state(const void *buffer, size_t data_size)
         header->state_size <= sizeof(g_game_state) &&
         data_size >= sizeof(struct SaveHeader) + header->state_size)
     {
-        if (header->version < SAVE_VERSION && header->state_size == sizeof(g_game_state))
-        {
-            save_debug_log("save rejected: old version with current state size");
-            return false;
-        }
-
         bool old_state_layout = header->state_size < sizeof(g_game_state);
         memset(&g_game_state, 0, sizeof(g_game_state));
         memcpy(&g_game_state, (const char*)buffer + sizeof(struct SaveHeader), header->state_size);

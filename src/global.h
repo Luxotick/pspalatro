@@ -675,25 +675,6 @@ struct BossBlindType
 
 extern struct BossBlindType g_boss_blind_types[BOSS_BLIND_COUNT];
 
-enum
-{
-    BLIND_ACTION_SELECT,
-    BLIND_ACTION_TAG,
-    BLIND_ACTION_SKIP
-};
-
-struct BlindTagType
-{
-    const char *name;
-    const char *description[3];
-    int tex_x, tex_y;
-    int min_ante;
-};
-
-#define BLIND_TAG_COUNT 24
-
-extern struct BlindTagType g_blind_tag_types[BLIND_TAG_COUNT];
-
 #define SCORE_NUMBER_ADD_CHIPS  0
 #define SCORE_NUMBER_ADD_MULT   1
 #define SCORE_NUMBER_MULT_MULT  2
@@ -921,11 +902,6 @@ struct GameState
         struct Card current_card;
     } deck_info;
 
-    int blind_tags[3];
-    int blind_focused_action;
-    bool blind_tag_description_open;
-    int skipped_blinds;
-    
 };
 
 extern struct GameState g_game_state;
@@ -1072,7 +1048,6 @@ int game_get_selected_poker_hand(struct Card *cards[], int card_count, int scori
 void game_start_ingame();
 void game_go_to_next_blind();
 void game_start_ingame();
-void game_skip_current_blind();
 void game_repair_loaded_state(bool reset_blind_tags);
 void game_show_title_menu();
 void game_start_new_run(int deck_type);
