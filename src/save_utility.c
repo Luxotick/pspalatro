@@ -342,6 +342,9 @@ static void save_relocate_game_state_pointers(void *old_base_addr)
     for(int i=0; i<g_game_state.played_hand.card_count; i++)
         g_game_state.played_hand.cards[i] = (struct Card*)((char*)g_game_state.played_hand.cards[i] + ptr_diff);
 
+    if (g_game_state.boss_forced_selected_card != NULL)
+        g_game_state.boss_forced_selected_card = (struct Card*)((char*)g_game_state.boss_forced_selected_card + ptr_diff);
+
     for(int k=0; k<4; k++)
     {
         for(int i=0; i<g_game_state.deck_info.card_count[k]; i++)

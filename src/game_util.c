@@ -27,11 +27,23 @@ int inner_game_util_joker_type(int index, int starting_index, bool first)
 
 int game_util_get_joker_type(int index)
 {
+    if (index >= 0 &&
+        index < g_game_state.jokers.joker_count &&
+        g_game_state.jokers.jokers[index].disabled)
+    {
+        return -1;
+    }
     return inner_game_util_joker_type(index, index, true);
 }
 
 int game_util_get_real_joker_type(int index)
 {
+    if (index >= 0 &&
+        index < g_game_state.jokers.joker_count &&
+        g_game_state.jokers.jokers[index].disabled)
+    {
+        return -1;
+    }
     return g_game_state.jokers.jokers[index].type;
 }
 
@@ -433,10 +445,37 @@ char *game_util_get_blind_name(int blind)
         case GAME_BLIND_LARGE:
             return "Big Blind";
         case GAME_BLIND_BOSS:
+            if (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+            {
+                return (char *)g_boss_blind_types[g_game_state.boss_blind_type].name;
+            }
             return "Boss Blind";
     }
 
     return "";
+}
+
+const char *game_util_get_blind_effect(int blind)
+{
+    if (blind == GAME_BLIND_SMALL || blind == GAME_BLIND_LARGE)
+    {
+        return "No special effects";
+    }
+
+    if (blind == GAME_BLIND_BOSS &&
+        g_game_state.boss_blind_type >= 0 &&
+        g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+    {
+        return g_boss_blind_types[g_game_state.boss_blind_type].effect;
+    }
+
+    return "";
+}
+
+bool game_util_is_boss_blind_active(int boss_blind_type)
+{
+    return g_game_state.blind == GAME_BLIND_BOSS &&
+        g_game_state.boss_blind_type == boss_blind_type;
 }
 
 bool game_util_is_joker_slot_available()
@@ -871,6 +910,60 @@ bool game_util_is_card_face(struct Card *card)
     return game_util_is_card_rank(card, CARD_RANK_JACK) || game_util_is_card_rank(card, CARD_RANK_QUEEN) || game_util_is_card_rank(card, CARD_RANK_KING);
 }
 
+bool game_util_is_card_debuffed(struct Card *card)
+{
+    if (card == NULL || g_game_state.blind != GAME_BLIND_BOSS) return false;
+
+    switch (g_game_state.boss_blind_type)
+    {
+        case BOSS_BLIND_CLUB:
+            return game_util_is_card_suit(card, CARD_SUIT_CLUBS);
+        case BOSS_BLIND_GOAD:
+            return game_util_is_card_suit(card, CARD_SUIT_SPADES);
+        case BOSS_BLIND_WINDOW:
+            return game_util_is_card_suit(card, CARD_SUIT_DIAMONDS);
+        case BOSS_BLIND_HEAD:
+            return game_util_is_card_suit(card, CARD_SUIT_HEARTS);
+        case BOSS_BLIND_PLANT:
+            return game_util_is_card_face(card);
+        case BOSS_BLIND_PILLAR:
+            return card->played_this_ante;
+        case BOSS_BLIND_VERDANT_LEAF:
+            return !g_game_state.boss_verdant_leaf_joker_sold;
+        default:
+            return false;
+    }
+}
+
+bool game_util_can_play_selected_hand()
+{
+    if (g_game_state.selected_cards_count <= 0 || g_game_state.current_hands <= 0)
+    {
+        return false;
+    }
+
+    if (game_util_is_boss_blind_active(BOSS_BLIND_PSYCHIC) &&
+        g_game_state.selected_cards_count != 5)
+    {
+        return false;
+    }
+
+    if (game_util_is_boss_blind_active(BOSS_BLIND_EYE) &&
+        (g_game_state.boss_played_hand_mask & (1 << g_game_state.current_poker_hand)))
+    {
+        return false;
+    }
+
+    if (game_util_is_boss_blind_active(BOSS_BLIND_MOUTH) &&
+        g_game_state.boss_played_hand_mask != 0 &&
+        !(g_game_state.boss_played_hand_mask & (1 << g_game_state.current_poker_hand)))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 float game_util_get_item_position(int i, int item_count, float start_x, float width, float item_width)
 {
     if (item_count * item_width > width)
@@ -1269,6 +1362,7 @@ int game_util_get_hand_size()
     hand_size += game_util_get_real_joker_type_count(JOKER_TYPE_TROUBADOUR) * 2;
     hand_size -= game_util_get_real_joker_type_count(JOKER_TYPE_MERRY_ANDY);
     hand_size -= game_util_get_real_joker_type_count(JOKER_TYPE_STUNTMAN) * 2;
+    if (game_util_is_boss_blind_active(BOSS_BLIND_MANACLE)) hand_size--;
 
     return MAX(1, hand_size);
 }

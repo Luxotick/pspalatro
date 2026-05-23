@@ -4,6 +4,7 @@
 #define TEXTURE_CARD_HEIGHT 93
 
 int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets;
+int tex_blind_chips[2][2];
 int tex_jokers[2][4];
 int tex_tarots[2][2];
 int tex_boosters[2];
@@ -76,6 +77,37 @@ g_ui_assets_tex_coords[UI_ASSETS_COUNT] = {
     { 18, 18 }, // UI_ASSETS_DIAMONDS
     { 36, 18 }, // UI_ASSETS_CLUBS
     { 54, 18 }  // UI_ASSETS_SPADES
+};
+
+int g_boss_blind_tex_rows[BOSS_BLIND_COUNT] = {
+    7,  // BOSS_BLIND_HOOK -> 7
+    2,  // BOSS_BLIND_OX -> 2
+    3,  // BOSS_BLIND_HOUSE -> 3
+    9,  // BOSS_BLIND_WALL -> 9
+    10, // BOSS_BLIND_WHEEL -> 10
+    11, // BOSS_BLIND_ARM -> 11
+    4,  // BOSS_BLIND_CLUB -> 4
+    5,  // BOSS_BLIND_FISH -> 5
+    12, // BOSS_BLIND_PSYCHIC -> 12
+    13, // BOSS_BLIND_GOAD -> 13
+    14, // BOSS_BLIND_WATER -> 14
+    6,  // BOSS_BLIND_WINDOW -> 6
+    8,  // BOSS_BLIND_MANACLE -> 8
+    17, // BOSS_BLIND_EYE -> 17
+    18, // BOSS_BLIND_MOUTH -> 18
+    19, // BOSS_BLIND_PLANT -> 19
+    15, // BOSS_BLIND_SERPENT -> 15
+    16, // BOSS_BLIND_PILLAR -> 16
+    20, // BOSS_BLIND_NEEDLE -> 20
+    21, // BOSS_BLIND_HEAD -> 21
+    22, // BOSS_BLIND_TOOTH -> 22
+    24, // BOSS_BLIND_FLINT -> 24
+    23, // BOSS_BLIND_MARK -> 23
+    27, // BOSS_BLIND_AMBER_ACORN -> 27
+    28, // BOSS_BLIND_VERDANT_LEAF -> 28
+    29, // BOSS_BLIND_VIOLET_VESSEL -> 29
+    25, // BOSS_BLIND_CRIMSON_HEART -> 25
+    26  // BOSS_BLIND_CERULEAN_BELL -> 26
 };
 
 int32_t g_time = 0;
@@ -153,6 +185,19 @@ bool game_init_draw()
 
     tex_ui_assets = graphics_load_texture_from_archive_16bit("resources/textures/1x/ui_assets.png", 0, 0);
     if (tex_ui_assets < 0) return false;
+
+    struct Image chips_image = graphics_load_image_from_archive("resources/textures/1x/BlindChips.png");
+    if (chips_image.data == NULL) return false;
+    for(int i = 0; i < 2; i++)
+    {
+        for(int j = 0; j < 2; j++)
+        {
+            sprintf(str, "Creating blind chips %d", i*2+j);
+            game_draw_loading_text(str, COLOR_WHITE, COLOR_BLACK);
+            tex_blind_chips[i][j] = graphics_load_texture_from_image_16bit(&chips_image, i * 15 * 34, j * 15 * 34);
+        }
+    }
+    graphics_destroy_image(&chips_image);
 
     sceKernelDcacheWritebackInvalidateAll();
 
@@ -658,6 +703,22 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
     float w = CARD_WIDTH * draw->scale;
     float h = CARD_HEIGHT * draw->scale;
 
+    if (card->face_down)
+    {
+        graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
+        graphics_draw_rotated_quad(
+            x, y, w, h,
+            1 + g_deck_types[g_game_state.deck_type].u * (TEXTURE_CARD_WIDTH + 2),
+            1 + g_deck_types[g_game_state.deck_type].v * (TEXTURE_CARD_HEIGHT + 2),
+            TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
+        if (card->draw.white_factor > 0.0f)
+        {
+            uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
+            graphics_draw_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+        }
+        return;
+    }
+
     if (card->edition == CARD_EDITION_NEGATIVE)
     {
         graphics_flush_quads();
@@ -704,6 +765,13 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
         graphics_draw_rotated_quad(x, y, w, h, g_seal_tex_coords[card->seal].x, g_seal_tex_coords[card->seal].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
     }
 
+    if (game_util_is_card_debuffed(card))
+    {
+        graphics_set_no_texture();
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * draw->scale, 27.0f * draw->scale, 40.0f * draw->scale, 9.0f * draw->scale, 0xCC0000FF, card->draw.angle + 0.78f);
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * draw->scale, 29.0f * draw->scale, 40.0f * draw->scale, 9.0f * draw->scale, 0xCC0000FF, card->draw.angle - 0.78f);
+    }
+
     if (card->draw.white_factor > 0.0f)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
@@ -726,6 +794,17 @@ void game_draw_joker(struct Joker *joker)
     y -= ((CARD_HEIGHT * joker->draw.scale) - CARD_HEIGHT) / 2.0f;
     float w = CARD_WIDTH * joker->draw.scale;
     float h = CARD_HEIGHT * joker->draw.scale;
+
+    if (joker->face_down)
+    {
+        graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
+        graphics_draw_rotated_quad(
+            x, y, w, h,
+            1 + g_deck_types[g_game_state.deck_type].u * (TEXTURE_CARD_WIDTH + 2),
+            1 + g_deck_types[g_game_state.deck_type].v * (TEXTURE_CARD_HEIGHT + 2),
+            TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, joker->draw.angle);
+        return;
+    }
 
     if (joker->edition == CARD_EDITION_NEGATIVE)
     {
@@ -768,6 +847,13 @@ void game_draw_joker(struct Joker *joker)
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[joker->edition].x, g_editions_tex_coords[joker->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, joker->draw.angle);
     }
     game_draw_edition_shader(joker->edition, x, y, w, h, joker->draw.angle, joker->draw.r);
+
+    if (joker->disabled)
+    {
+        graphics_set_no_texture();
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * joker->draw.scale, 27.0f * joker->draw.scale, 40.0f * joker->draw.scale, 9.0f * joker->draw.scale, 0xCC0000FF, joker->draw.angle + 0.78f);
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * joker->draw.scale, 29.0f * joker->draw.scale, 40.0f * joker->draw.scale, 9.0f * joker->draw.scale, 0xCC0000FF, joker->draw.angle - 0.78f);
+    }
 }
 
 void game_draw_card_frame(struct DrawObject *draw)
@@ -1335,23 +1421,38 @@ void game_draw_left_info()
         }
         case GAME_STAGE_INGAME:
         {
+            int blind_row = 0;
+            if (g_game_state.blind == GAME_BLIND_SMALL) blind_row = 0;
+            else if (g_game_state.blind == GAME_BLIND_LARGE) blind_row = 1;
+            else if (g_game_state.blind == GAME_BLIND_BOSS) {
+                if (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT) {
+                    blind_row = g_boss_blind_tex_rows[g_game_state.boss_blind_type];
+                } else {
+                    blind_row = g_boss_blind_tex_rows[0];
+                }
+            }
+            int frame = (g_game_counter / 4) % 21;
+            graphics_set_texture(tex_blind_chips[frame/15][blind_row/15], GRAPHICS_TEXTURE_FILTER_NEAREST);
+            graphics_draw_quad((DRAW_LEFT_INFO_WIDTH / 2.0f) - 17.0f + 2.0f, y, 34, 34, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
+            graphics_set_no_texture();
+            
+            y += 38;
+
             switch (g_game_state.blind)
             {
                 case GAME_BLIND_SMALL:
-                    graphics_draw_text(font_big, "Small Blind", 6, y, 1.0f, COLOR_WHITE);
-                    break;
                 case GAME_BLIND_LARGE:
-                    graphics_draw_text(font_big, "Large Blind", 6, y, 1.0f, COLOR_WHITE);
-                    break;
                 case GAME_BLIND_BOSS:
-                    graphics_draw_text(font_big, "Boss Blind", 6, y, 1.0f, COLOR_WHITE);
+                    graphics_draw_text(font_big, game_util_get_blind_name(g_game_state.blind), 6, y, 1.0f, COLOR_WHITE);
                     break;
             }
             y += 12;
             graphics_draw_text(font_small, "Score at least", 6, y, 1.0f, COLOR_WHITE);
             y += 8;
-            sprintf(str, "%g", game_get_current_blind_score());
-            graphics_draw_text(font_small, str, 6, y, 1.0f, COLOR_WHITE);
+            graphics_set_texture(tex_ui_assets, GRAPHICS_TEXTURE_FILTER_NEAREST);
+            graphics_draw_quad(6, y - 1, 10, 10, g_ui_assets_tex_coords[UI_ASSETS_CHIP].x, g_ui_assets_tex_coords[UI_ASSETS_CHIP].y, 18, 18, COLOR_WHITE);
+            game_draw_format_score_value(str, sizeof(str), game_get_current_blind_score());
+            graphics_draw_text(font_small, str, 18, y, 1.0f, COLOR_LIGHT_RED);
             y += 24;            
 
             break;
@@ -1816,9 +1917,25 @@ void game_draw_ingame()
     game_draw_score_number();
 }
 
+int game_draw_get_blind_reward(int blind)
+{
+    switch (blind)
+    {
+        case GAME_BLIND_SMALL:
+            return 3;
+        case GAME_BLIND_LARGE:
+            return 4;
+        case GAME_BLIND_BOSS:
+            return (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT) ?
+                g_boss_blind_types[g_game_state.boss_blind_type].reward : 5;
+        default:
+            return 0;
+    }
+}
+
 void game_draw_blind_select()
 {
-    char str[24];
+    char str[32];
 
     game_draw_left_info();    
 
@@ -1838,15 +1955,56 @@ void game_draw_blind_select()
         
         graphics_draw_quad(x, y, 90, SCREEN_HEIGHT - 90, 0, 0, 0, 0, COLOR_DARK_GREY);
 
-        y += 10;
+        y += 6;
+        int blind_row = 0;
+        if (i == GAME_BLIND_SMALL) blind_row = 0;
+        else if (i == GAME_BLIND_LARGE) blind_row = 1;
+        else if (i == GAME_BLIND_BOSS) {
+            if (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT) {
+                blind_row = g_boss_blind_tex_rows[g_game_state.boss_blind_type];
+            } else {
+                blind_row = g_boss_blind_tex_rows[0];
+            }
+        }
+        
+        int frame = (g_game_counter / 4) % 21;
+        graphics_set_texture(tex_blind_chips[frame/15][blind_row/15], GRAPHICS_TEXTURE_FILTER_NEAREST);
+        graphics_draw_quad(x + 28, y, 34, 34, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
+        graphics_set_no_texture();
+
+        y += 38;
         graphics_draw_text(font_small, game_util_get_blind_name(i), x + 2, y, 1.0f, COLOR_WHITE);
 
         y += 12;
         graphics_draw_text(font_small, "Score at least", x + 2, y, 1.0f, COLOR_WHITE);
 
         y += 10;
-        sprintf(str, "%g", game_get_ante_base_score() * (1.0 + ((double)i * 0.5)));
-        graphics_draw_text(font_small, str, x + 2, y, 1.0f, COLOR_LIGHT_RED);
+        graphics_set_texture(tex_ui_assets, GRAPHICS_TEXTURE_FILTER_NEAREST);
+        graphics_draw_quad(x + 2, y - 1, 10, 10, g_ui_assets_tex_coords[UI_ASSETS_CHIP].x, g_ui_assets_tex_coords[UI_ASSETS_CHIP].y, 18, 18, COLOR_WHITE);
+        game_draw_format_score_value(str, sizeof(str), game_get_blind_score(i));
+        graphics_draw_text(font_small, str, x + 14, y, 1.0f, COLOR_LIGHT_RED);
+
+        y += 12;
+        sprintf(str, "Reward $%d", game_draw_get_blind_reward(i));
+        graphics_draw_text(font_small, str, x + 2, y, 0.8f, COLOR_YELLOW);
+
+        y += 14;
+        const char *effect_line_1 = "";
+        const char *effect_line_2 = "";
+        if (i == GAME_BLIND_BOSS &&
+            g_game_state.boss_blind_type >= 0 &&
+            g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+        {
+            effect_line_1 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_1;
+            effect_line_2 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_2;
+        }
+        else
+        {
+            effect_line_1 = game_util_get_blind_effect(i);
+        }
+        graphics_draw_text(font_small, effect_line_1, x + 2, y, 0.55f, COLOR_WHITE);
+        y += 8;
+        graphics_draw_text(font_small, effect_line_2, x + 2, y, 0.55f, COLOR_WHITE);
 
         if (i != g_game_state.blind)
         {

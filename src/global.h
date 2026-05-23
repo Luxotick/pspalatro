@@ -201,7 +201,9 @@ struct Card
 
     uint8_t enhancement, edition, seal;
 
-    bool selected;    
+    bool selected;
+    bool played_this_ante;
+    bool face_down;
 };
 
 #define MAX_CARDS  1024
@@ -410,7 +412,9 @@ struct Joker
     int param1;
     int repeat;
 
-    int value;    
+    int value;
+    bool disabled;
+    bool face_down;
 };
 
 #define MAX_JOKERS  1024
@@ -625,6 +629,52 @@ extern char *g_poker_hand_names[GAME_POKER_HAND_COUNT];
 #define GAME_BLIND_LARGE    1
 #define GAME_BLIND_BOSS     2
 
+#define BOSS_BLIND_NONE             -1
+#define BOSS_BLIND_HOOK             0
+#define BOSS_BLIND_OX               1
+#define BOSS_BLIND_HOUSE            2
+#define BOSS_BLIND_WALL             3
+#define BOSS_BLIND_WHEEL            4
+#define BOSS_BLIND_ARM              5
+#define BOSS_BLIND_CLUB             6
+#define BOSS_BLIND_FISH             7
+#define BOSS_BLIND_PSYCHIC          8
+#define BOSS_BLIND_GOAD             9
+#define BOSS_BLIND_WATER            10
+#define BOSS_BLIND_WINDOW           11
+#define BOSS_BLIND_MANACLE          12
+#define BOSS_BLIND_EYE              13
+#define BOSS_BLIND_MOUTH            14
+#define BOSS_BLIND_PLANT            15
+#define BOSS_BLIND_SERPENT          16
+#define BOSS_BLIND_PILLAR           17
+#define BOSS_BLIND_NEEDLE           18
+#define BOSS_BLIND_HEAD             19
+#define BOSS_BLIND_TOOTH            20
+#define BOSS_BLIND_FLINT            21
+#define BOSS_BLIND_MARK             22
+#define BOSS_BLIND_AMBER_ACORN      23
+#define BOSS_BLIND_VERDANT_LEAF     24
+#define BOSS_BLIND_VIOLET_VESSEL    25
+#define BOSS_BLIND_CRIMSON_HEART    26
+#define BOSS_BLIND_CERULEAN_BELL    27
+#define BOSS_BLIND_COUNT            28
+
+struct BossBlindType
+{
+    int type;
+    const char *name;
+    const char *effect;
+    const char *effect_line_1;
+    const char *effect_line_2;
+    int min_ante;
+    double score_mult;
+    int reward;
+    bool showdown;
+};
+
+extern struct BossBlindType g_boss_blind_types[BOSS_BLIND_COUNT];
+
 #define SCORE_NUMBER_ADD_CHIPS  0
 #define SCORE_NUMBER_ADD_MULT   1
 #define SCORE_NUMBER_MULT_MULT  2
@@ -692,6 +742,11 @@ struct GameState
     struct CardReferences hand, played_hand;
     int base_hand_size;
     int ante, blind, round, total_hands, total_discards;
+    int boss_blind_type;
+    int boss_played_hand_mask;
+    bool boss_verdant_leaf_joker_sold;
+    int boss_forced_selected_card_index;
+    struct Card *boss_forced_selected_card;
     int wealth;
     int joker_slots;
     int consumable_slots;
@@ -869,6 +924,7 @@ bool game_util_played_hand_contains_straight();
 bool game_util_played_hand_contains_flush();
 bool game_util_played_hand_contains_scoring_face();
 char *game_util_get_blind_name(int blind);
+const char *game_util_get_blind_effect(int blind);
 bool game_util_is_joker_slot_available();
 bool game_util_is_consumable_slot_available();
 int game_util_get_joker_buy_price(struct Joker *joker);
@@ -896,6 +952,8 @@ int game_util_rand(int min, int max);
 int game_util_get_lowest_rank_held_in_hand();
 bool game_util_is_card_rank(struct Card *card, int rank);
 bool game_util_is_card_face(struct Card *card);
+bool game_util_is_card_debuffed(struct Card *card);
+bool game_util_can_play_selected_hand();
 bool game_util_has_scoring_cards_rank(int rank);
 void game_init_joker(struct Joker *joker);
 void game_init_tarot(struct Tarot *tarot, int type, int edition);
@@ -926,6 +984,7 @@ int game_util_get_random_poker_hand();
 int game_util_get_hand_size();
 int game_util_get_hands();
 int game_util_get_discards();
+bool game_util_is_boss_blind_active(int boss_blind_type);
 int game_util_get_shop_joker_edition();
 int game_util_get_random_booster_card_edition();
 
@@ -963,12 +1022,15 @@ bool automated_event_run();
 bool game_init_load_file_values();
 
 double game_get_ante_base_score();
+double game_get_blind_score(int blind);
 double game_get_current_blind_score();
+void game_select_new_boss_blind();
 void game_sort_hand_by_rank();
 void game_sort_hand();
 void game_set_card_hand_positions();
 void game_set_card_hand_initial_positions();
 void game_set_card_hand_final_positions();
+void game_set_shop_booster_position();
 void game_draw_card_into_hand();
 void game_discard_card(int i);
 void game_set_card_played_hand_final_position();

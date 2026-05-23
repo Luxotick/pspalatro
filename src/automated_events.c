@@ -217,6 +217,50 @@ bool automated_event_wait()
     return true;
 }
 
+void automated_event_set_cerulean_forced_card()
+{
+    if (!game_util_is_boss_blind_active(BOSS_BLIND_CERULEAN_BELL) ||
+        g_game_state.hand.card_count <= 0 ||
+        g_game_state.selected_cards_count > 0)
+    {
+        return;
+    }
+
+    int index = game_util_rand(0, g_game_state.hand.card_count - 1);
+    g_game_state.boss_forced_selected_card_index = index;
+    g_game_state.boss_forced_selected_card = g_game_state.hand.cards[index];
+    g_game_state.hand.cards[index]->selected = true;
+    g_game_state.selected_cards_count = 1;
+
+    struct Card *cards[5];
+    cards[0] = g_game_state.hand.cards[index];
+    int scoring_cards[5];
+    int scoring_cards_count = 0;
+    g_game_state.current_poker_hand = game_get_selected_poker_hand(cards, 1, scoring_cards, &scoring_cards_count);
+    g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
+    g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
+}
+
+void automated_event_set_crimson_disabled_joker()
+{
+    if (!game_util_is_boss_blind_active(BOSS_BLIND_CRIMSON_HEART))
+    {
+        return;
+    }
+
+    for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+    {
+        g_game_state.jokers.jokers[i].disabled = false;
+    }
+
+    if (g_game_state.jokers.joker_count > 0)
+    {
+        int index = game_util_rand(0, g_game_state.jokers.joker_count - 1);
+        g_game_state.jokers.jokers[index].disabled = true;
+        event_add_pop_joker(index, VARIABLE_TIME(30));
+    }
+}
+
 struct DrawObject *aux_automated_event_get_card_draw(int card_index, int card_location)
 {
     switch(card_location)
@@ -375,6 +419,8 @@ bool automated_event_score()
         g_current_speedup = MAX(g_current_speedup, SPEEDUP_MIN);
         g_score_count = 0;
         g_freeze_cards = true;
+        g_game_state.boss_forced_selected_card_index = -1;
+        g_game_state.boss_forced_selected_card = NULL;
         
         // Init jokers
         automated_event_score_init_jokers();
@@ -393,7 +439,40 @@ bool automated_event_score()
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FIVE_OF_A_KIND) g_game_state.five_of_a_kind_enabled = true;
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FLUSH_FIVE) g_game_state.flush_five_enabled = true;
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FLUSH_HOUSE) g_game_state.flush_house_enabled = true;
+        if (game_util_is_boss_blind_active(BOSS_BLIND_OX) &&
+            g_game_state.current_poker_hand == g_game_state.stats.most_played_poker_hand)
+        {
+            g_game_state.wealth = 0;
+        }
+        if (game_util_is_boss_blind_active(BOSS_BLIND_ARM) &&
+            g_game_state.poker_hand_level[g_game_state.current_poker_hand] > 1)
+        {
+            g_game_state.poker_hand_level[g_game_state.current_poker_hand]--;
+            int planet_type = game_util_get_planet_type_of_poker_hand(g_game_state.current_poker_hand);
+            g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand] -= g_planet_types[planet_type].chips;
+            g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand] -= g_planet_types[planet_type].mult;
+            g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
+            g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
+        }
+        if (game_util_is_boss_blind_active(BOSS_BLIND_FLINT))
+        {
+            g_game_state.current_base_chips = floor(g_game_state.current_base_chips / 2.0);
+            g_game_state.current_base_mult = floor(g_game_state.current_base_mult / 2.0);
+        }
+        if (game_util_is_boss_blind_active(BOSS_BLIND_TOOTH))
+        {
+            g_game_state.wealth -= g_game_state.played_hand.card_count;
+        }
         game_increment_played_poker_hand(g_game_state.current_poker_hand);
+        g_game_state.boss_played_hand_mask |= 1 << g_game_state.current_poker_hand;
+        if (g_game_state.blind != GAME_BLIND_BOSS ||
+            game_util_is_boss_blind_active(BOSS_BLIND_PILLAR))
+        {
+            for (int i = 0; i < g_game_state.played_hand.card_count; i++)
+            {
+                g_game_state.played_hand.cards[i]->played_this_ante = true;
+            }
+        }
         g_game_state.stats.cards_played += g_game_state.scoring_card_count;
         event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_PLAYED, -1, 0, 0, MOVE_TIMESPAN);
         g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER] = 0;
@@ -582,8 +661,15 @@ bool automated_event_score()
     AUTO_EVENT_NAMED_STAGE(SCORE_ADD_CHIPS) // Add chips
     {
         g_automated_event->params[SCORE_PARAM_CURRENT_SCORING_CARD] = get_scoring_card_index(g_automated_event->params[SCORE_PARAM_SCORING_CARD_COUNTER]);
-                
-        uint32_t chips = game_util_get_card_chips(g_game_state.played_hand.cards[g_automated_event->params[SCORE_PARAM_CURRENT_SCORING_CARD]]);
+
+        struct Card *card = g_game_state.played_hand.cards[g_automated_event->params[SCORE_PARAM_CURRENT_SCORING_CARD]];
+        if (game_util_is_card_debuffed(card))
+        {
+            event_add_pop_item(&(card->draw), VARIABLE_TIME(SCORE_TIMESPAN));
+            AUTO_EVENT_GO_TO_STAGE(SCORE_NEXT_CARD)
+        }
+
+        uint32_t chips = game_util_get_card_chips(card);
 
         AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, chips, 0, 0, 0, g_automated_event->params[SCORE_PARAM_CURRENT_SCORING_CARD], EVENT_CARD_LOCATION_PLAYED, -1)
     }
@@ -1023,6 +1109,10 @@ bool automated_event_score()
                 AUTO_EVENT_SET_VAL(SCORE_PARAM_SCORING_CARD_REPEAT, 1)
                 AUTO_EVENT_GO_TO_STAGE(SCORE_HAND_2)
             }
+        }
+        if (g_game_state.jokers.jokers[AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER)].disabled)
+        {
+            AUTO_EVENT_GO_TO_STAGE(SCORE_NEXT_JOKER)
         }
         AUTO_EVENT_GO_TO_STAGE(SCORE_JOKER_PRE_EDITION)
     }
@@ -1498,6 +1588,19 @@ bool automated_event_score()
 
     AUTO_EVENT_NAMED_STAGE(DISCARD_DEALT_HAND) // Discard dealt hand
     {
+        if (game_util_is_boss_blind_active(BOSS_BLIND_HOOK))
+        {
+            for (int i = 0; i < 2 && g_game_state.hand.card_count > 0; i++)
+            {
+                int card_index = game_util_rand(0, g_game_state.hand.card_count - 1);
+                struct Card *hook_card = g_game_state.hand.cards[card_index];
+                hook_card->selected = false;
+                event_add(EVENT_MOVE_CARD, 0, EVENT_CARD_LOCATION_HAND, card_index, SCREEN_WIDTH + 10, hook_card->draw.y, 20);
+                game_discard_card(card_index);
+            }
+            g_game_state.selected_cards_count = 0;
+        }
+
         if (g_game_state.deck_type == DECK_TYPE_PLASMA)
         {
             double balanced = floor(((double)g_game_state.current_base_chips + (double)g_game_state.current_base_mult) / 2.0);
@@ -1580,7 +1683,11 @@ bool automated_event_score()
         g_game_state.hands_played_in_round++;
         AUTO_EVENT_SET_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER, 0)
         if (g_game_state.current_hands > 0 && g_game_state.score < game_get_current_blind_score())
-        {        
+        {
+            for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+            {
+                g_game_state.jokers.jokers[i].disabled = false;
+            }
             if (game_util_get_hand_size() - g_game_state.hand.card_count > 0)
             {
                 AUTO_EVENT_EXIT_AND_CALL(AUTOMATED_EVENT_DRAW, 1, game_util_get_hand_size() - g_game_state.hand.card_count);            
@@ -1909,6 +2016,8 @@ bool automated_event_draw_cards()
         {
             AUTO_EVENT_GO_TO_STAGE(DRAW_CARD)
         }
+        automated_event_set_crimson_disabled_joker();
+        automated_event_set_cerulean_forced_card();
     }
 
     AUTO_EVENT_END()
@@ -1945,7 +2054,9 @@ bool automated_event_cash_out()
                 g_game_state.cash_out_value += g_game_state.cash_out_blind;
                 break;
             case GAME_BLIND_BOSS:
-                g_game_state.cash_out_blind = 5;
+                g_game_state.cash_out_blind =
+                    (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT) ?
+                    g_boss_blind_types[g_game_state.boss_blind_type].reward : 5;
                 g_game_state.cash_out_value += g_game_state.cash_out_blind;
                 break;
         }
@@ -2179,6 +2290,10 @@ bool automated_event_sell_joker()
         g_game_state.input_focused_zone = -1;       
 
         g_game_state.wealth += game_util_get_joker_sell_price(&(g_game_state.jokers.jokers[g_game_state.highlighted_item]));
+        if (game_util_is_boss_blind_active(BOSS_BLIND_VERDANT_LEAF))
+        {
+            g_game_state.boss_verdant_leaf_joker_sold = true;
+        }
 
         // for(int j = g_game_state.highlighted_item+1; j < g_game_state.jokers.joker_count; j++)
         // {
@@ -3539,6 +3654,22 @@ bool automated_event_select_blind()
 
     AUTO_EVENT_NAMED_STAGE(AFTER_JOKERS)
     {
+        if (game_util_is_boss_blind_active(BOSS_BLIND_AMBER_ACORN))
+        {
+            for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+            {
+                g_game_state.jokers.jokers[i].face_down = true;
+            }
+            for (int i = g_game_state.jokers.joker_count - 1; i > 0; i--)
+            {
+                int j = game_util_rand(0, i);
+                struct Joker temp_joker = g_game_state.jokers.jokers[i];
+                g_game_state.jokers.jokers[i] = g_game_state.jokers.jokers[j];
+                g_game_state.jokers.jokers[j] = temp_joker;
+            }
+            event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_JOKER, 0, 0, 0, 10);
+        }
+
         game_go_to_stage(GAME_STAGE_INGAME, GAME_SUBSTAGE_INGAME_PICK_HAND);
     }
 

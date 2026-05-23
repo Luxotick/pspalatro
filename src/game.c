@@ -51,6 +51,37 @@ char *g_card_suits[4] = {
     "Spades"
 };
 
+struct BossBlindType g_boss_blind_types[BOSS_BLIND_COUNT] = {
+    { BOSS_BLIND_HOOK,          "The Hook",       "Discards 2 random cards after hand", "Discards 2 random", "cards after hand", 1, 2.0, 5, false },
+    { BOSS_BLIND_OX,            "The Ox",         "Most played hand sets money to $0", "Most played hand", "sets money to $0", 6, 2.0, 5, false },
+    { BOSS_BLIND_HOUSE,         "The House",      "First hand is drawn face down", "First hand drawn", "face down", 2, 2.0, 5, false },
+    { BOSS_BLIND_WALL,          "The Wall",       "Extra large blind", "Extra large", "blind", 2, 4.0, 5, false },
+    { BOSS_BLIND_WHEEL,         "The Wheel",      "1 in 7 cards drawn face down", "1 in 7 cards", "drawn face down", 2, 2.0, 5, false },
+    { BOSS_BLIND_ARM,           "The Arm",        "Decrease played hand level by 1", "Played hand", "loses 1 level", 2, 2.0, 5, false },
+    { BOSS_BLIND_CLUB,          "The Club",       "All Club cards are debuffed", "All Club cards", "are debuffed", 1, 2.0, 5, false },
+    { BOSS_BLIND_FISH,          "The Fish",       "Cards drawn face down after hand", "Drawn face down", "after each hand", 2, 2.0, 5, false },
+    { BOSS_BLIND_PSYCHIC,       "The Psychic",    "Must play 5 cards", "Must play", "5 cards", 1, 2.0, 5, false },
+    { BOSS_BLIND_GOAD,          "The Goad",       "All Spade cards are debuffed", "All Spade cards", "are debuffed", 1, 2.0, 5, false },
+    { BOSS_BLIND_WATER,         "The Water",      "Start with 0 discards", "Start with", "0 discards", 2, 2.0, 5, false },
+    { BOSS_BLIND_WINDOW,        "The Window",     "All Diamond cards are debuffed", "All Diamond cards", "are debuffed", 1, 2.0, 5, false },
+    { BOSS_BLIND_MANACLE,       "The Manacle",    "-1 hand size", "-1", "hand size", 1, 2.0, 5, false },
+    { BOSS_BLIND_EYE,           "The Eye",        "No repeat hand types", "No repeat", "hand types", 3, 2.0, 5, false },
+    { BOSS_BLIND_MOUTH,         "The Mouth",      "Only one hand type this round", "Only one hand", "type this round", 2, 2.0, 5, false },
+    { BOSS_BLIND_PLANT,         "The Plant",      "All face cards are debuffed", "All face cards", "are debuffed", 4, 2.0, 5, false },
+    { BOSS_BLIND_SERPENT,       "The Serpent",    "Always draw 3 cards after hand", "Always draw", "3 cards", 5, 2.0, 5, false },
+    { BOSS_BLIND_PILLAR,        "The Pillar",     "Cards played this Ante debuffed", "Cards played", "this Ante debuffed", 1, 2.0, 5, false },
+    { BOSS_BLIND_NEEDLE,        "The Needle",     "Play only 1 hand", "Play only", "1 hand", 2, 1.0, 5, false },
+    { BOSS_BLIND_HEAD,          "The Head",       "All Heart cards are debuffed", "All Heart cards", "are debuffed", 1, 2.0, 5, false },
+    { BOSS_BLIND_TOOTH,         "The Tooth",      "Lose $1 per card played", "Lose $1 per", "card played", 3, 2.0, 5, false },
+    { BOSS_BLIND_FLINT,         "The Flint",      "Base Chips and Mult are halved", "Base Chips/Mult", "are halved", 2, 2.0, 5, false },
+    { BOSS_BLIND_MARK,          "The Mark",       "Face cards are drawn face down", "Face cards drawn", "face down", 2, 2.0, 5, false },
+    { BOSS_BLIND_AMBER_ACORN,   "Amber Acorn",    "Flips and shuffles all Jokers", "Flips/shuffles", "all Jokers", 8, 2.0, 8, true },
+    { BOSS_BLIND_VERDANT_LEAF,  "Verdant Leaf",   "All cards debuffed until Joker sold", "All cards debuffed", "until Joker sold", 8, 2.0, 8, true },
+    { BOSS_BLIND_VIOLET_VESSEL, "Violet Vessel",  "Very large blind", "Very large", "blind", 8, 6.0, 8, true },
+    { BOSS_BLIND_CRIMSON_HEART, "Crimson Heart",  "Random Joker disabled every hand", "Random Joker", "disabled each hand", 8, 2.0, 8, true },
+    { BOSS_BLIND_CERULEAN_BELL, "Cerulean Bell",  "Forces 1 card selected", "Forces 1 card", "selected", 8, 2.0, 8, true }
+};
+
 char *g_poker_hand_names[GAME_POKER_HAND_COUNT] = 
 {
     "",                 // GAME_POKER_HAND_NONE
@@ -494,11 +525,41 @@ double game_get_ante_base_score()
     return ante_score[scaling][ante];
 }
 
+void game_select_new_boss_blind()
+{
+    int candidates[BOSS_BLIND_COUNT];
+    int candidate_count = 0;
+    bool showdown = g_game_state.ante > 0 && g_game_state.ante % 8 == 0;
+
+    for (int i = 0; i < BOSS_BLIND_COUNT; i++)
+    {
+        struct BossBlindType *boss = &g_boss_blind_types[i];
+        if (boss->showdown != showdown) continue;
+        if (g_game_state.ante < boss->min_ante) continue;
+        candidates[candidate_count++] = i;
+    }
+
+    if (candidate_count == 0)
+    {
+        for (int i = 0; i < BOSS_BLIND_COUNT; i++)
+        {
+            if (g_boss_blind_types[i].showdown == showdown)
+            {
+                candidates[candidate_count++] = i;
+            }
+        }
+    }
+
+    g_game_state.boss_blind_type = candidate_count > 0 ? candidates[game_util_rand(0, candidate_count - 1)] : BOSS_BLIND_HOOK;
+}
+
 void game_init_joker(struct Joker *joker)
 {
     joker->param1 = 0;
     joker->repeat = 0;
     joker->value = g_joker_types[joker->type].value;
+    joker->disabled = false;
+    joker->face_down = false;
     game_init_draw_object(&(joker->draw));
     switch(joker->type)
     {
@@ -533,10 +594,22 @@ void game_init_joker(struct Joker *joker)
 
 double game_get_current_blind_score()
 {
+    return game_get_blind_score(g_game_state.blind);
+}
+
+double game_get_blind_score(int blind)
+{
     double score = game_get_ante_base_score();
     if (g_game_state.deck_type == DECK_TYPE_PLASMA) score *= 2.0;
 
-    return score * (1.0 + (double)g_game_state.blind * 0.5);
+    if (blind == GAME_BLIND_BOSS &&
+        g_game_state.boss_blind_type >= 0 &&
+        g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+    {
+        return score * g_boss_blind_types[g_game_state.boss_blind_type].score_mult;
+    }
+
+    return score * (1.0 + (double)blind * 0.5);
 }
 
 void game_set_card_name(struct Card *card, char *name)
@@ -969,8 +1042,32 @@ void game_set_card_hand_final_positions()
 
 void game_draw_card_into_hand()
 {
-    g_game_state.hand.cards[g_game_state.hand.card_count] = g_game_state.current_deck.cards[g_game_state.current_deck.card_count - 1];
-    g_game_state.hand.cards[g_game_state.hand.card_count]->selected = false;
+    struct Card *card = g_game_state.current_deck.cards[g_game_state.current_deck.card_count - 1];
+    card->selected = false;
+    card->face_down = false;
+
+    if (game_util_is_boss_blind_active(BOSS_BLIND_HOUSE) &&
+        g_game_state.hands_played_in_round == 0)
+    {
+        card->face_down = true;
+    }
+    if (game_util_is_boss_blind_active(BOSS_BLIND_FISH) &&
+        g_game_state.hands_played_in_round > 0)
+    {
+        card->face_down = true;
+    }
+    if (game_util_is_boss_blind_active(BOSS_BLIND_WHEEL) &&
+        game_util_chance_occurs(1, 7))
+    {
+        card->face_down = true;
+    }
+    if (game_util_is_boss_blind_active(BOSS_BLIND_MARK) &&
+        game_util_is_card_face(card))
+    {
+        card->face_down = true;
+    }
+
+    g_game_state.hand.cards[g_game_state.hand.card_count] = card;
     g_game_state.hand.cards[g_game_state.hand.card_count]->draw.x = g_game_state.hand.cards[g_game_state.hand.card_count]->draw.initial_x = 400;
     g_game_state.hand.cards[g_game_state.hand.card_count]->draw.y = g_game_state.hand.cards[g_game_state.hand.card_count]->draw.initial_y = 200;
     g_game_state.hand.card_count++;
@@ -1489,6 +1586,7 @@ void game_move_selected_cards_to_played_cards()
         if (g_game_state.hand.cards[i]->selected)
         {
             g_game_state.hand.cards[i]->selected = false;
+            g_game_state.hand.cards[i]->face_down = false;
             g_game_state.played_hand.cards[g_game_state.played_hand.card_count++] = g_game_state.hand.cards[i];
         }
         else
@@ -1605,6 +1703,15 @@ void game_start_ingame()
     g_game_state.round++;
     
     g_game_state.hands_played_in_round = 0;
+    g_game_state.boss_played_hand_mask = 0;
+    g_game_state.boss_verdant_leaf_joker_sold = false;
+    g_game_state.boss_forced_selected_card_index = -1;
+    g_game_state.boss_forced_selected_card = NULL;
+    for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+    {
+        g_game_state.jokers.jokers[i].disabled = false;
+        g_game_state.jokers.jokers[i].face_down = false;
+    }
 
     g_game_state.score_number.show_score_number = false;
     g_game_state.cash_out_panel_y = SCREEN_HEIGHT;
@@ -1613,6 +1720,8 @@ void game_start_ingame()
 
     g_game_state.current_hands = game_util_get_hands();
     g_game_state.current_discards = game_util_get_discards();
+    if (game_util_is_boss_blind_active(BOSS_BLIND_WATER)) g_game_state.current_discards = 0;
+    if (game_util_is_boss_blind_active(BOSS_BLIND_NEEDLE)) g_game_state.current_hands = 1;
 
     game_set_hand_y(DRAW_HAND_Y);
 
@@ -1632,6 +1741,8 @@ void game_init_full_deck()
             g_game_state.all_cards.cards[card_count].enhancement = CARD_ENHANCEMENT_NONE; // rand() % CARD_ENHANCEMENT_COUNT;
             g_game_state.all_cards.cards[card_count].edition =  CARD_EDITION_BASE;
             g_game_state.all_cards.cards[card_count].seal = CARD_SEAL_NONE;
+            g_game_state.all_cards.cards[card_count].played_this_ante = false;
+            g_game_state.all_cards.cards[card_count].face_down = false;
             game_init_draw_object(&(g_game_state.all_cards.cards[card_count].draw));
             g_game_state.full_deck.cards[card_count] = &(g_game_state.all_cards.cards[card_count]);
             card_count++;
@@ -1916,6 +2027,11 @@ void game_init_logic()
     g_game_state.deck_type = g_new_run_deck_type;
     g_game_state.ante = 1;
     g_game_state.blind = GAME_BLIND_SMALL;
+    game_select_new_boss_blind();
+    g_game_state.boss_played_hand_mask = 0;
+    g_game_state.boss_verdant_leaf_joker_sold = false;
+    g_game_state.boss_forced_selected_card_index = -1;
+    g_game_state.boss_forced_selected_card = NULL;
     g_game_state.total_hands = g_settings.hands;
     g_game_state.total_discards = g_settings.discards;
     g_game_state.round = 0;
@@ -2069,6 +2185,14 @@ void game_increment_played_poker_hand(int poker_hand)
     }
 }
 
+void game_reset_cards_played_this_ante()
+{
+    for (int i = 0; i < g_game_state.all_cards.card_count; i++)
+    {
+        g_game_state.all_cards.cards[i].played_this_ante = false;
+    }
+}
+
 void game_go_to_next_blind()
 {
     g_game_state.stage = GAME_STAGE_BLINDS;
@@ -2078,6 +2202,8 @@ void game_go_to_next_blind()
     {
         g_game_state.blind = GAME_BLIND_SMALL;
         g_game_state.ante++;
+        game_reset_cards_played_this_ante();
+        game_select_new_boss_blind();
     }
 }
 
@@ -2248,7 +2374,9 @@ struct Card *game_set_new_card()
 {
     // TODO: Check if over the limit
     g_game_state.all_cards.card_count++;
-    return &g_game_state.all_cards.cards[g_game_state.all_cards.card_count-1];
+    g_game_state.all_cards.cards[g_game_state.all_cards.card_count - 1].played_this_ante = false;
+    g_game_state.all_cards.cards[g_game_state.all_cards.card_count - 1].face_down = false;
+    return &g_game_state.all_cards.cards[g_game_state.all_cards.card_count - 1];
 }
 
 void game_add_card_to_full_deck(struct Card *card)

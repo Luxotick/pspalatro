@@ -264,6 +264,13 @@ void game_input_update_hand(bool no_input)
             g_game_state.cross_pressed = false;
             if (!g_game_state.moving_card)
             {
+                if (game_util_is_boss_blind_active(BOSS_BLIND_CERULEAN_BELL) &&
+                    g_game_state.hand.cards[g_game_state.highlighted_item] == g_game_state.boss_forced_selected_card &&
+                    g_game_state.hand.cards[g_game_state.highlighted_item]->selected)
+                {
+                    game_set_card_hand_positions();
+                    return;
+                }
                 if (g_game_state.hand.cards[g_game_state.highlighted_item]->selected || 
                     (!g_game_state.hand.cards[g_game_state.highlighted_item]->selected && g_game_state.selected_cards_count < 5))
                 {
@@ -323,7 +330,7 @@ void game_input_update_hand(bool no_input)
         {
             if (g_game_state.stage == GAME_STAGE_INGAME)
             {
-                if (g_game_state.selected_cards_count > 0 && g_game_state.current_hands > 0)
+                if (game_util_can_play_selected_hand())
                 {
                     g_game_state.highlighted_item = 0;
                     automated_event_set(AUTOMATED_EVENT_SCORE, 0);
@@ -335,12 +342,29 @@ void game_input_update_hand(bool no_input)
         {            
             for (int i = 0; i < g_game_state.hand.card_count; i++)
             {
-                g_game_state.hand.cards[i]->selected = false;
+                g_game_state.hand.cards[i]->selected =
+                    game_util_is_boss_blind_active(BOSS_BLIND_CERULEAN_BELL) &&
+                    g_game_state.hand.cards[i] == g_game_state.boss_forced_selected_card;
             }
-            g_game_state.selected_cards_count = 0;
-            g_game_state.current_poker_hand = GAME_POKER_HAND_NONE;
-            g_game_state.current_base_chips = 0;
-            g_game_state.current_base_mult = 0;
+            g_game_state.selected_cards_count =
+                game_util_is_boss_blind_active(BOSS_BLIND_CERULEAN_BELL) &&
+                g_game_state.boss_forced_selected_card != NULL ? 1 : 0;
+            if (g_game_state.selected_cards_count == 0)
+            {
+                g_game_state.current_poker_hand = GAME_POKER_HAND_NONE;
+                g_game_state.current_base_chips = 0;
+                g_game_state.current_base_mult = 0;
+            }
+            else
+            {
+                struct Card *cards[5];
+                cards[0] = g_game_state.boss_forced_selected_card;
+                int scoring_cards[5];
+                int scoring_cards_count = 0;
+                g_game_state.current_poker_hand = game_get_selected_poker_hand(cards, 1, scoring_cards, &scoring_cards_count);
+                g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
+                g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
+            }
             g_game_state.highlighted_item = 0;
             game_set_card_hand_positions();
         }
@@ -776,7 +800,7 @@ void game_input_update_hand_play(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_CROSS))
     {
-        if (g_game_state.selected_cards_count > 0 && g_game_state.current_hands > 0)
+        if (game_util_can_play_selected_hand())
         {
             g_game_state.highlighted_item = 0;
             automated_event_set(AUTOMATED_EVENT_SCORE, 0);
@@ -1432,6 +1456,65 @@ bool game_input_debug_update_decks()
     return true;
 }
 
+#ifdef DEBUG_MODE
+bool game_input_debug_update_boss_blind()
+{
+    if (!g_settings.debug_tools) return false;
+    if (g_game_state.stage != GAME_STAGE_BLINDS)
+    {
+        return false;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_START))
+    {
+        g_game_state.blind = GAME_BLIND_BOSS;
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_BLIND;
+
+        bool showdown = g_game_state.ante > 0 && g_game_state.ante % 8 == 0;
+        do
+        {
+            g_game_state.boss_blind_type = (g_game_state.boss_blind_type + 1) % BOSS_BLIND_COUNT;
+        } while (g_boss_blind_types[g_game_state.boss_blind_type].showdown != showdown ||
+                 g_game_state.ante < g_boss_blind_types[g_game_state.boss_blind_type].min_ante);
+
+        audio_play_sfx(AUDIO_SFX_BUTTON);
+        return true;
+    }
+
+    return false;
+}
+
+bool game_input_debug_update_spectral_boosters()
+{
+    if (!g_settings.debug_tools) return false;
+    if (g_game_state.stage != GAME_STAGE_SHOP ||
+        g_game_state.sub_stage != GAME_SUBSTAGE_SHOP_MAIN)
+    {
+        return false;
+    }
+
+    if (input_was_button_pressed(INPUT_BUTTON_START))
+    {
+        for (int i = 0; i < g_game_state.shop.total_boosters; i++)
+        {
+            g_game_state.shop.boosters[i].available = true;
+            g_game_state.shop.boosters[i].booster.type = BOOSTER_PACK_TYPE_SPECTRAL;
+            g_game_state.shop.boosters[i].booster.size = BOOSTER_PACK_SIZE_MEGA;
+            g_game_state.shop.boosters[i].booster.image = i % BOOSTER_PACK_MAX_IMAGES;
+        }
+        g_game_state.shop.booster_count = g_game_state.shop.total_boosters;
+        game_set_shop_booster_position();
+        g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_SHOP_BOOSTERS;
+        g_game_state.highlighted_item = game_util_get_first_shop_booster_index();
+
+        audio_play_sfx(AUDIO_SFX_BUTTON);
+        return true;
+    }
+
+    return false;
+}
+#endif
+
 void game_input_update(bool no_input)
 {
     if (g_settings.debug_tools &&
@@ -1446,7 +1529,11 @@ void game_input_update(bool no_input)
 
     if (input_is_button_down(INPUT_BUTTON_LEFT_TRIGGER) &&
         input_is_button_down(INPUT_BUTTON_RIGHT_TRIGGER) &&
-        (game_input_debug_update_decks() || game_input_debug_update_seal() || game_input_debug_update_edition()))
+        (game_input_debug_update_decks() || game_input_debug_update_seal() || game_input_debug_update_edition()
+#ifdef DEBUG_MODE
+         || game_input_debug_update_boss_blind() || game_input_debug_update_spectral_boosters()
+#endif
+        ))
     {
         return;
     }
