@@ -933,8 +933,7 @@ void game_util_get_new_booster_pack(int *type, int *size)
     double r = random_double(0.0, g_booster_packs_weights_total);
 
     double t = 0.0;
-    // TODO: ignoring spectral boosters for now
-    for (int i = 0; i < BOOSTER_PACK_TYPE_COUNT - 1; i++)
+    for (int i = 0; i < BOOSTER_PACK_TYPE_COUNT; i++)
     {
         for (int j = 0; j < BOOSTER_PACK_SIZE_COUNT; j++)
         {
@@ -947,7 +946,7 @@ void game_util_get_new_booster_pack(int *type, int *size)
         }
     }
 
-    *type = BOOSTER_PACK_TYPE_COUNT - 2;
+    *type = BOOSTER_PACK_TYPE_SPECTRAL;
     *size = BOOSTER_PACK_SIZE_COUNT - 1;
 }
 
@@ -960,7 +959,8 @@ void game_util_get_joker_hint_value(struct Joker *joker, char *dst)
     {
         case JOKER_TYPE_JOKER_STENCIL:
         {
-            sprintf(dst, "%d", (g_game_state.joker_slots + g_game_state.jokers.negative_count) - g_game_state.jokers.joker_count + 1);
+            int empty_joker_slots = (g_game_state.joker_slots + g_game_state.jokers.negative_count) - g_game_state.jokers.joker_count;
+            sprintf(dst, "%d", MAX(0, empty_joker_slots) + 1);
             return;
         }
         case JOKER_TYPE_BLUE_JOKER:

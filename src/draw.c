@@ -1222,6 +1222,18 @@ void game_draw_deck()
 
 #define DRAW_LEFT_INFO_WIDTH 96
 
+static void game_draw_format_score_value(char *str, size_t size, double value)
+{
+    if (value < 1000000.0)
+    {
+        snprintf(str, size, "%.0f", value);
+    }
+    else
+    {
+        snprintf(str, size, "%.4g", value);
+    }
+}
+
 bool game_draw_should_burn_score()
 {
     if (g_debug_info.force_score_flames && g_game_state.stage == GAME_STAGE_INGAME)
@@ -1236,7 +1248,7 @@ bool game_draw_should_burn_score()
         return false;
     }
 
-    double hand_score = (double)g_game_state.current_base_chips * (double)g_game_state.current_base_mult;
+    double hand_score = g_game_state.current_base_chips * g_game_state.current_base_mult;
     return hand_score > 0.0 && hand_score >= game_get_current_blind_score();
 }
 
@@ -1249,7 +1261,7 @@ float game_draw_get_score_flame_intensity()
         return 1.5f + (float)((g_time / 16) % 4);
     }
 
-    double hand_score = (double)g_game_state.current_base_chips * (double)g_game_state.current_base_mult;
+    double hand_score = g_game_state.current_base_chips * g_game_state.current_base_mult;
     float intensity = (float)(log(hand_score) / log(5.0) - 2.0);
     return CLAMP(intensity, 0.35f, 5.5f);
 }
@@ -1408,11 +1420,11 @@ void game_draw_left_info()
     }    
 
     y += 2;
-    sprintf(str, "%ld", g_game_state.current_base_chips);
+    game_draw_format_score_value(str, sizeof(str), g_game_state.current_base_chips);
     graphics_draw_text_center(font_small, str, DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4.0f, 1.0f, COLOR_WHITE);
     sprintf(str, "x");
     graphics_draw_text(font_small, str, 47, y, 1.0f, 0xFF8888FF);
-    sprintf(str, "%ld", g_game_state.current_base_mult);
+    game_draw_format_score_value(str, sizeof(str), g_game_state.current_base_mult);
     graphics_draw_text_center(font_small, str, 2.0f + 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4.0f, 1.0f, COLOR_WHITE);
 
     y += 22;

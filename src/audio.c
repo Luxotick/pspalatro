@@ -4,6 +4,8 @@
 
 #define AUDIO_BUFFER_CHUNKS  8
 #define AUDIO_BUFFER_SIZE   4096
+#define AUDIO_VOLUME_SHIFT  8
+#define AUDIO_VOLUME_ONE    (1 << AUDIO_VOLUME_SHIFT)
 
 struct audio_buffer_data
 {
@@ -48,7 +50,7 @@ struct AudioSfx
     bool in_use;
     struct sample_t *samples;
     int sample_count;
-    float volume;
+    int volume;
 };
 
 struct AudioSfxChannel
@@ -61,8 +63,8 @@ struct AudioSfxChannel
 struct AudioFlameChannel
 {
     int position;
-    float volume;
-    float target_volume;
+    int volume;
+    int target_volume;
 };
 
 struct AudioSfx g_audio_sfx[AUDIO_SFX_COUNT];
@@ -76,14 +78,20 @@ static short audio_clamp_sample(int sample)
     return sample;
 }
 
-static float audio_get_music_volume()
+static int audio_volume_from_float(float volume)
 {
-    return (float)CLAMP(g_settings.music_volume, 0, 10) / 10.0f;
+    if (volume <= 0.0f) return 0;
+    return (int)(volume * (float)AUDIO_VOLUME_ONE + 0.5f);
 }
 
-static float audio_get_sfx_volume()
+static int audio_get_music_volume()
 {
-    return (float)CLAMP(g_settings.sfx_volume, 0, 10) / 10.0f;
+    return CLAMP(g_settings.music_volume, 0, 10) * AUDIO_VOLUME_ONE / 10;
+}
+
+static int audio_get_sfx_volume()
+{
+    return CLAMP(g_settings.sfx_volume, 0, 10) * AUDIO_VOLUME_ONE / 10;
 }
 
 void audio_callback(void* buf, unsigned int length, void *userdata)
@@ -117,17 +125,17 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
         memset(buf, 0, buffer_size);
     }
 
-    float music_volume = audio_get_music_volume();
-    if (music_volume < 0.999f)
+    int music_volume = audio_get_music_volume();
+    if (music_volume < AUDIO_VOLUME_ONE)
     {
         for (int i = 0; i < sample_count; i++)
         {
-            out[i].l = (short)((float)out[i].l * music_volume);
-            out[i].r = (short)((float)out[i].r * music_volume);
+            out[i].l = (short)((out[i].l * music_volume) >> AUDIO_VOLUME_SHIFT);
+            out[i].r = (short)((out[i].r * music_volume) >> AUDIO_VOLUME_SHIFT);
         }
     }
 
-    float sfx_master_volume = audio_get_sfx_volume();
+    int sfx_master_volume = audio_get_sfx_volume();
     for (int channel_index = 0; channel_index < AUDIO_SFX_CHANNELS; channel_index++)
     {
         volatile struct AudioSfxChannel *channel = &g_audio_sfx_channels[channel_index];
@@ -145,6 +153,12 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
             continue;
         }
 
+        int volume = (sfx->volume * sfx_master_volume) >> AUDIO_VOLUME_SHIFT;
+        if (volume <= 0)
+        {
+            continue;
+        }
+
         for (int i = 0; i < sample_count; i++)
         {
             if (channel->position >= sfx->sample_count)
@@ -154,20 +168,20 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
             }
 
             struct sample_t sample = sfx->samples[channel->position++];
-            out[i].l = audio_clamp_sample(out[i].l + (int)((float)sample.l * sfx->volume * sfx_master_volume));
-            out[i].r = audio_clamp_sample(out[i].r + (int)((float)sample.r * sfx->volume * sfx_master_volume));
+            out[i].l = audio_clamp_sample(out[i].l + ((sample.l * volume) >> AUDIO_VOLUME_SHIFT));
+            out[i].r = audio_clamp_sample(out[i].r + ((sample.r * volume) >> AUDIO_VOLUME_SHIFT));
         }
     }
 
     struct AudioSfx *flame_sfx = &g_audio_sfx[AUDIO_SFX_FLAME];
     if (flame_sfx->in_use && flame_sfx->sample_count > 0 &&
-        (g_audio_flame_channel.volume > 0.001f || g_audio_flame_channel.target_volume > 0.001f))
+        (g_audio_flame_channel.volume > 0 || g_audio_flame_channel.target_volume > 0))
     {
-        float volume = g_audio_flame_channel.volume;
-        float target = g_audio_flame_channel.target_volume;
-        volume += (target - volume) * 0.18f;
+        int volume = g_audio_flame_channel.volume;
+        int target = g_audio_flame_channel.target_volume;
+        volume += ((target - volume) * 46) >> AUDIO_VOLUME_SHIFT;
         int position = g_audio_flame_channel.position;
-        int volume_fixed = (int)(flame_sfx->volume * volume * sfx_master_volume * 256.0f);
+        int volume_fixed = (flame_sfx->volume * volume * sfx_master_volume) >> (AUDIO_VOLUME_SHIFT * 2);
 
         if (volume_fixed > 0)
         {
@@ -176,8 +190,8 @@ void audio_callback(void* buf, unsigned int length, void *userdata)
                 if (position >= flame_sfx->sample_count) position = 0;
 
                 struct sample_t sample = flame_sfx->samples[position++];
-                out[i].l = audio_clamp_sample(out[i].l + ((sample.l * volume_fixed) >> 8));
-                out[i].r = audio_clamp_sample(out[i].r + ((sample.r * volume_fixed) >> 8));
+                out[i].l = audio_clamp_sample(out[i].l + ((sample.l * volume_fixed) >> AUDIO_VOLUME_SHIFT));
+                out[i].r = audio_clamp_sample(out[i].r + ((sample.r * volume_fixed) >> AUDIO_VOLUME_SHIFT));
             }
         }
 
@@ -201,7 +215,7 @@ void audio_init()
         g_audio_sfx[i].in_use = false;
         g_audio_sfx[i].samples = NULL;
         g_audio_sfx[i].sample_count = 0;
-        g_audio_sfx[i].volume = 1.0f;
+        g_audio_sfx[i].volume = AUDIO_VOLUME_ONE;
     }
 
     for (int i = 0; i < AUDIO_SFX_CHANNELS; i++)
@@ -210,8 +224,8 @@ void audio_init()
     }
 
     g_audio_flame_channel.position = 0;
-    g_audio_flame_channel.volume = 0.0f;
-    g_audio_flame_channel.target_volume = 0.0f;
+    g_audio_flame_channel.volume = 0;
+    g_audio_flame_channel.target_volume = 0;
 }
 char temp_buffer[AUDIO_BUFFER_SIZE];
 
@@ -516,7 +530,7 @@ int audio_load_sfx_from_archive_limited(int sfx_id, char *filename, float volume
 
     g_audio_sfx[sfx_id].samples = samples;
     g_audio_sfx[sfx_id].sample_count = total_samples;
-    g_audio_sfx[sfx_id].volume = volume;
+    g_audio_sfx[sfx_id].volume = audio_volume_from_float(volume);
     g_audio_sfx[sfx_id].in_use = true;
 
     return sfx_id;
@@ -592,12 +606,12 @@ void audio_set_score_flame_intensity(float intensity)
 {
     if (!g_settings.audio)
     {
-        g_audio_flame_channel.target_volume = 0.0f;
+        g_audio_flame_channel.target_volume = 0;
         return;
     }
 
     float target_volume = CLAMP(intensity / 4.0f, 0.0f, 1.0f) * 2.35f;
-    g_audio_flame_channel.target_volume = target_volume;
+    g_audio_flame_channel.target_volume = audio_volume_from_float(target_volume);
 }
 
 void audio_destroy_sfx()
@@ -607,8 +621,8 @@ void audio_destroy_sfx()
         g_audio_sfx_channels[i].active = false;
     }
 
-    g_audio_flame_channel.target_volume = 0.0f;
-    g_audio_flame_channel.volume = 0.0f;
+    g_audio_flame_channel.target_volume = 0;
+    g_audio_flame_channel.volume = 0;
     g_audio_flame_channel.position = 0;
 
     for (int i = 0; i < AUDIO_SFX_COUNT; i++)

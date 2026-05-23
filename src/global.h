@@ -740,7 +740,7 @@ struct GameState
     int selected_cards_count;
     int current_poker_hand;
     int scoring_card_count;
-    uint32_t current_base_chips, current_base_mult;
+    double current_base_chips, current_base_mult;
     enum
     {
         SORT_CRITERIA_RANK,

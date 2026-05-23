@@ -1117,11 +1117,8 @@ bool automated_event_score()
                 break;
             case JOKER_TYPE_JOKER_STENCIL:
             {
-                double mult = 1.0;
-                if ((g_game_state.joker_slots + g_game_state.jokers.negative_count) - g_game_state.jokers.joker_count > 0)
-                {
-                    mult = 1.0 + (double)(g_game_state.joker_slots - g_game_state.jokers.joker_count);
-                }
+                int empty_joker_slots = (g_game_state.joker_slots + g_game_state.jokers.negative_count) - g_game_state.jokers.joker_count;
+                double mult = 1.0 + (double)MAX(0, empty_joker_slots);
                 AUTO_EVENT_CALL(AUTOMATED_EVENT_ADD_SCORE, 7, 0, 0, (int)(mult * 100), 0, AUTO_EVENT_VAL(SCORE_PARAM_FINAL_JOKER_COUNTER), EVENT_CARD_LOCATION_JOKER, -1)
                 break;
             }
