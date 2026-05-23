@@ -2105,7 +2105,7 @@ void game_draw_blind_select()
         y += 10;
         game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
 
-        if (i != GAME_BLIND_BOSS)
+        if (false && i != GAME_BLIND_BOSS)
         {
             int tag_type = g_game_state.blind_tags[i];
             bool current = i == g_game_state.blind && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_BLIND;
