@@ -47,7 +47,7 @@ static int autosave_exists_cache = -1;
 
 #define SAVE_MAGIC "PSPALTRO"
 #define SAVE_MAGIC_SIZE 8
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2
 #define PROFILE_MAGIC "PSPAPROF"
 #define PROFILE_VERSION 1
 
@@ -379,14 +379,22 @@ static bool save_unpack_game_state(const void *buffer, size_t data_size)
     const struct SaveHeader *header = (const struct SaveHeader*)buffer;
     if (data_size >= sizeof(struct SaveHeader) &&
         memcmp(header->magic, SAVE_MAGIC, SAVE_MAGIC_SIZE) == 0 &&
-        header->version == SAVE_VERSION &&
+        header->version > 0 &&
+        header->version <= SAVE_VERSION &&
         header->state_size <= sizeof(g_game_state) &&
         data_size >= sizeof(struct SaveHeader) + header->state_size)
     {
+        if (header->version < SAVE_VERSION && header->state_size == sizeof(g_game_state))
+        {
+            save_debug_log("save rejected: old version with current state size");
+            return false;
+        }
+
+        bool old_state_layout = header->state_size < sizeof(g_game_state);
         memset(&g_game_state, 0, sizeof(g_game_state));
         memcpy(&g_game_state, (const char*)buffer + sizeof(struct SaveHeader), header->state_size);
-        if (header->state_size < sizeof(g_game_state)) g_game_state.deck_type = DECK_TYPE_RED;
         save_relocate_game_state_pointers(header->base_addr);
+        game_repair_loaded_state(old_state_layout);
         return true;
     }
 
@@ -394,11 +402,12 @@ static bool save_unpack_game_state(const void *buffer, size_t data_size)
     {
         void *old_base_addr;
         size_t state_size = MIN(data_size - sizeof(void*), sizeof(g_game_state));
+        bool old_state_layout = state_size < sizeof(g_game_state);
         memcpy(&old_base_addr, buffer, sizeof(void*));
         memset(&g_game_state, 0, sizeof(g_game_state));
         memcpy(&g_game_state, (const char*)buffer + sizeof(void*), state_size);
-        if (state_size < sizeof(g_game_state)) g_game_state.deck_type = DECK_TYPE_RED;
         save_relocate_game_state_pointers(old_base_addr);
+        game_repair_loaded_state(old_state_layout);
         return true;
     }
 

@@ -2313,6 +2313,38 @@ void game_skip_current_blind()
     game_go_to_next_blind();
 }
 
+void game_repair_loaded_state(bool reset_blind_tags)
+{
+    g_game_state.blind = CLAMP(g_game_state.blind, GAME_BLIND_SMALL, GAME_BLIND_BOSS);
+    g_game_state.deck_type = CLAMP(g_game_state.deck_type, 0, DECK_TYPE_COUNT - 1);
+    g_game_state.stage = CLAMP(g_game_state.stage, GAME_STAGE_BLINDS, GAME_STAGE_TITLE);
+    g_game_state.blind_focused_action = BLIND_ACTION_SELECT;
+    g_game_state.blind_tag_description_open = false;
+
+    if (g_game_state.skipped_blinds < 0 || g_game_state.skipped_blinds > 1000)
+    {
+        g_game_state.skipped_blinds = 0;
+    }
+
+    bool invalid_tags = reset_blind_tags;
+    for (int i = 0; i < 2; i++)
+    {
+        if (g_game_state.blind_tags[i] < 0 || g_game_state.blind_tags[i] >= BLIND_TAG_COUNT)
+        {
+            invalid_tags = true;
+        }
+    }
+
+    if (invalid_tags)
+    {
+        game_select_new_blind_tags();
+    }
+    else
+    {
+        g_game_state.blind_tags[GAME_BLIND_BOSS] = -1;
+    }
+}
+
 #define CHANCE_JOKER_SHOP_SINGLE 71
 #define CHANCE_TAROT_SHOP_SINGLE 14
 
