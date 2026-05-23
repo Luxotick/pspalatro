@@ -1917,6 +1917,25 @@ static void game_add_starting_spectral(int spectral_type)
     profile_discover_spectral(spectral_type);
 }
 
+static void game_set_starting_consumable_positions()
+{
+    for (int i = 0; i < g_game_state.consumables.item_count; i++)
+    {
+        struct DrawObject *draw = NULL;
+        if (g_game_state.consumables.items[i].type == ITEM_TYPE_PLANET)
+            draw = &(g_game_state.consumables.items[i].planet.draw);
+        else if (g_game_state.consumables.items[i].type == ITEM_TYPE_TAROT)
+            draw = &(g_game_state.consumables.items[i].tarot.draw);
+        else
+            draw = &(g_game_state.consumables.items[i].spectral.draw);
+
+        draw->x = draw->initial_x = draw->final_x = game_util_get_item_position(i, g_game_state.consumables.item_count, DRAW_CONSUMABLES_X, DRAW_CONSUMABLES_WIDTH, CARD_WIDTH);
+        draw->y = draw->initial_y = draw->final_y = DRAW_JOKERS_Y;
+        draw->angle = 0.0f;
+        draw->scale = 1.0f;
+    }
+}
+
 static void game_remove_face_cards_from_full_deck()
 {
     int write = 0;
@@ -2120,6 +2139,7 @@ void game_init_logic()
 
     game_init_full_deck();
     game_apply_deck_effects();
+    game_set_starting_consumable_positions();
     game_util_copy_deck(&g_game_state.full_deck, &g_game_state.current_deck);
     profile_discover_deck(g_game_state.deck_type);
 
