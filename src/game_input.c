@@ -1274,7 +1274,8 @@ void game_input_update_deck_select(bool no_input)
 
     if (input_was_button_pressed(INPUT_BUTTON_CROSS))
     {
-        if (profile_is_deck_unlocked(g_game_state.highlighted_item))
+        bool unlocked = profile_is_deck_unlocked(g_game_state.highlighted_item);
+        if (unlocked)
         {
             game_start_new_run(g_game_state.highlighted_item);
         }

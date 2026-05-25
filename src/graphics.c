@@ -17,13 +17,30 @@ void *g_frame_buffer_2;
 void *g_last_frame_buffer;
 
 #define MAX_QUADS 100
+#define MAX_FRAME_QUADS 4096
 
-static unsigned int __attribute__((aligned(16))) g_draw_list[65536];
-static struct Vertex __attribute__((aligned(16))) g_vertex_array[2000 * 2];
+static unsigned int __attribute__((aligned(16))) g_draw_list[131072];
+static struct Vertex __attribute__((aligned(16))) g_vertex_array[MAX_FRAME_QUADS * 2];
 static int g_vertex_array_pos = 0;
+static bool g_vertex_array_full = false;
 
 struct Vertex *g_quad_vertices;
 static int g_current_quad = 0;
+
+static void graphics_alloc_quad_array()
+{
+    g_vertex_array_pos += g_current_quad * 2;
+    if (g_vertex_array_pos + (MAX_QUADS * 2) > MAX_FRAME_QUADS * 2)
+    {
+        g_vertex_array_full = true;
+        g_current_quad = 0;
+        g_quad_vertices = NULL;
+        return;
+    }
+
+    g_quad_vertices = &(g_vertex_array[g_vertex_array_pos]);
+    g_current_quad = 0;
+}
 
 struct Texture
 {
@@ -53,11 +70,10 @@ int g_font_count = 0;
 
 int g_allocated_graphic_bytes = 0;
 
-#define GU_START()   sceGuStart(GU_DIRECT, g_draw_list); g_vertex_array_pos = 0; g_quad_vertices = g_vertex_array; // printf("GU_START\n");
+#define GU_START()   sceGuStart(GU_DIRECT, g_draw_list); g_vertex_array_pos = 0; g_current_quad = 0; g_vertex_array_full = false; g_quad_vertices = g_vertex_array; g_current_set_texture = -999; g_current_filter = -999; // printf("GU_START\n");
 #define GU_FINISH()  sceKernelDcacheWritebackInvalidateAll(); sceGuFinish(); sceGuSync(0,0); // printf("GU_FINISH\n");
 #define GU_DRAW_ARRAY_QUADS()   sceKernelDcacheWritebackInvalidateAll(); sceGumDrawArray(GU_SPRITES, GU_COLOR_8888|GU_TEXTURE_16BIT|GU_VERTEX_32BITF|GU_TRANSFORM_3D, 2 * g_current_quad, NULL, g_quad_vertices); // printf("GU_DRAW_ARRAY_QUADS: %d %d\n", g_current_quad, g_vertex_array_pos);
-// #define GU_ALLOC_QUAD_ARRAY()   g_current_quad = 0; g_quad_vertices = (struct Vertex*)sceGuGetMemory(MAX_QUADS * 2 * sizeof(struct Vertex)); // printf("GU_ALLOC_QUAD_ARRAY: %p %p %p %p %p %p\n", g_quad_vertices, (void *)g_draw_list, sceGeEdramGetAddr(), sceGeEdramGetAddr() + (int)g_frame_buffer_0, sceGeEdramGetAddr() + (int)g_frame_buffer_1, sceGeEdramGetAddr() + (int)g_frame_buffer_2);
-#define GU_ALLOC_QUAD_ARRAY()   g_vertex_array_pos += g_current_quad * 2; g_quad_vertices = &(g_vertex_array[g_vertex_array_pos]); g_current_quad = 0; // printf("GU_ALLOC_QUAD_ARRAY %d\n", g_vertex_array_pos);
+#define GU_ALLOC_QUAD_ARRAY()   graphics_alloc_quad_array(); // printf("GU_ALLOC_QUAD_ARRAY %d\n", g_vertex_array_pos);
 
 #define FONT_SMALL_WIDTH    6
 #define FONT_SMALL_HEIGHT   8
@@ -829,7 +845,7 @@ void graphics_set_texture(int texture, int filter)
 
 void graphics_flush_quads_end()
 {
-    if (g_current_quad > 0)
+    if (g_current_quad > 0 && g_quad_vertices != NULL)
     {
         GU_DRAW_ARRAY_QUADS();
     }
@@ -839,7 +855,7 @@ void graphics_flush_quads_end()
 
 void graphics_flush_quads()
 {
-    if (g_current_quad == 0) return;
+    if (g_current_quad == 0 || g_quad_vertices == NULL) return;
 
     GU_DRAW_ARRAY_QUADS();
 
@@ -861,6 +877,7 @@ void graphics_draw_rotated_quad(float x, float y, float w, float h, int16_t u, i
     int index = 0;
 
     graphics_flush_quads();
+    if (g_vertex_array_full || g_quad_vertices == NULL) return;
 
     if (g_current_set_texture != -1)
     {
@@ -912,6 +929,8 @@ void graphics_draw_rotated_quad(float x, float y, float w, float h, int16_t u, i
 
 void graphics_draw_quad(float x, float y, float w, float h, int16_t u, int16_t v, int16_t uw, int16_t vh, uint32_t color)
 {
+    if (g_vertex_array_full || g_quad_vertices == NULL) return;
+
     int index = g_current_quad * 2;
 
     if (g_current_set_texture != -1)
