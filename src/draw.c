@@ -998,18 +998,18 @@ void game_draw_planet(struct Planet *planet)
 
 void game_draw_booster(struct BoosterPack *booster)
 {
-    int text_booster_y = 0;
+    int tex_booster_y = 0;
     struct BoosterPackType *booster_type = &(g_booster_types[booster->type][booster->size][booster->image]);
-    text_booster_y = booster_type->v / 5;
+    tex_booster_y = booster_type->v / 5;
 
     float x, y;
     game_draw_get_oscillating_position(&(booster->draw), &x, &y);
 
-    graphics_set_texture(tex_boosters[text_booster_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
+    graphics_set_texture(tex_boosters[tex_booster_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(
         x, y, BOOSTER_WIDTH, BOOSTER_HEIGHT,
         1 + (booster_type->u) * (TEXTURE_CARD_WIDTH + 2),
-        1 + (booster_type->v - text_booster_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
+        1 + (booster_type->v - tex_booster_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, booster->draw.angle);
     game_draw_price_tag(&(booster->draw), game_util_get_booster_price(booster));
 }
