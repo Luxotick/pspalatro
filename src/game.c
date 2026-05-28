@@ -316,7 +316,7 @@ struct TarotType g_tarot_types[TAROT_TYPE_COUNT] = {
     { TAROT_TYPE_MOON         , "The Moon",             1, 3, 8, 1, { "Converts up to #53#-", "selected cards", "to #5Clubs#-", "" } },
     { TAROT_TYPE_SUN          , "The Sun",              1, 3, 9, 1, { "Converts up to #53#-", "selected cards", "to #5Hearts#-", "" } },
     { TAROT_TYPE_JUDGEMENT    , "Judgement",            0, 0, 0, 2, { "Creates a random", "#5Joker#- card", "", "" } },
-    { TAROT_TYPE_WORLD        , "The World",            1, 3, 1, 2, { "Converts up to #53#-", "selected cards", "to #Spades#-", "" } }
+    { TAROT_TYPE_WORLD        , "The World",            1, 3, 1, 2, { "Converts up to #53#-", "selected cards", "to #5Spades#-", "" } }
 };
 
 struct SpectralType g_spectral_types[SPECTRAL_TYPE_COUNT] = {
