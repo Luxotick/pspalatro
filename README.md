@@ -2,12 +2,12 @@
 
 **Work in progress PSP implementation of Balatro.**
 
-This project is still under active development and is open to the community.  
+This project is still under active development and is open to the community.
 Feedback, bug reports, suggestions and contributions are welcome.
 
 This repository is based on a fork of the original PSPalatro project by [internalregister](https://github.com/internalregister), with additional updates, fixes and features added by contributors in this version.
 
-This is a limited implementation of the game **Balatro** for **Sony's Playstation Portable** console.  
+This is a limited implementation of the game **Balatro** for **Sony's Playstation Portable** console.
 The project is for legitimate owners of a **Balatro** copy who wish to experience a partial implementation of the game on the PSP.
 
 ## Screenshots
@@ -22,10 +22,10 @@ The project is for legitimate owners of a **Balatro** copy who wish to experienc
 
 ## Disclaimer
 
-**This project is not endorsed or affiliated with LocalThunk or Playstack.**  
+**This project is not endorsed or affiliated with LocalThunk or Playstack.**
 **All rights are reserved to their respective holders.**
 
-You need to own the original game in order to use this software, namely the Windows version.  
+You need to own the original game in order to use this software, namely the Windows version.
 It has not been tested with other versions.
 
 Here's where you can buy it from:
@@ -37,7 +37,7 @@ Here's where you can buy it from:
 
 I did this for fun in whatever free time I managed to get.
 
-The project is still being improved and may receive new updates over time.  
+The project is still being improved and may receive new updates over time.
 There is no strict roadmap, but I will try to fix bugs and add improvements whenever I can.
 
 Not all implemented rules match the original game exactly. Some of them were adjusted due to PSP limitations, missing information, or implementation differences.

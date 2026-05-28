@@ -102,6 +102,6 @@ size_t archive_get_file_entry_size(const char *filename)
     zip_stat_t stat;
     if (g_archive_file == NULL) return 0;
     if (zip_stat(g_archive_file, filename, 0, &stat) != 0) return 0;
-    
+
     return stat.size;
 }

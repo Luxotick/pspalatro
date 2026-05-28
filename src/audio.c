@@ -9,7 +9,7 @@
 
 struct audio_buffer_data
 {
-    char data[AUDIO_BUFFER_SIZE];    
+    char data[AUDIO_BUFFER_SIZE];
 };
 
 struct audio_buffer
@@ -95,7 +95,7 @@ static int audio_get_sfx_volume()
 }
 
 void audio_callback(void* buf, unsigned int length, void *userdata)
-{    
+{
     unsigned int buffer_size = length * sizeof(struct sample_t);
     struct sample_t *out = (struct sample_t *)buf;
     int sample_count = length;
@@ -380,7 +380,7 @@ int audio_load_ogg(char *filename)
     fclose(fp_ogg);
 
     ov_callbacks callbacks;
-    
+
     g_ogg_files[ogg_id].cur_ptr = g_ogg_files[ogg_id].file_ptr;
     g_ogg_files[ogg_id].file_size = fsize;
     g_ogg_files[ogg_id].in_use = true;
@@ -397,7 +397,7 @@ int audio_load_ogg(char *filename)
         return -1;
     }
 
-#ifdef DEBUG    
+#ifdef DEBUG
     {
         DEBUG_PRINTF("Ogg file \"%s\" loaded.\n", filename);
 
@@ -426,7 +426,7 @@ int audio_load_ogg_from_archive(char *filename)
     if (!g_ogg_files[ogg_id].file_ptr) return -1;
 
     ov_callbacks callbacks;
-    
+
     g_ogg_files[ogg_id].cur_ptr = g_ogg_files[ogg_id].file_ptr;
     g_ogg_files[ogg_id].file_size = file_size;
     g_ogg_files[ogg_id].in_use = true;
@@ -443,7 +443,7 @@ int audio_load_ogg_from_archive(char *filename)
         return -1;
     }
 
-#ifdef DEBUG    
+#ifdef DEBUG
     {
         DEBUG_PRINTF("Ogg file \"%s\" loaded.\n", filename);
 
