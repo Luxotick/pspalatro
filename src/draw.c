@@ -3,8 +3,11 @@
 #define TEXTURE_CARD_WIDTH  69
 #define TEXTURE_CARD_HEIGHT 93
 
+#define BLIND_CHIP_WIDTH  32
+#define BLIND_CHIP_HEIGHT 32
+
 int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets, tex_tags;
-int tex_blind_chips[2][2];
+int tex_blind_chips[2][3];
 int tex_jokers[2][4];
 int tex_tarots[2][2];
 int tex_boosters[2];
@@ -48,18 +51,18 @@ g_enhancement_tex_coords[CARD_ENHANCEMENT_COUNT] = {
 },
 g_gamepad_ui_text_coords[GAMEPAD_UI_COUNT] = {
     { 0, 32 }, // GAMEPAD_UI_CROSS
-    { 32, 32 }, // GAMEPAD_UI_CIRCLE        
-    { 64, 32 }, // GAMEPAD_UI_SQUARE        
-    { 96, 32 }, // GAMEPAD_UI_TRIANGLE      
-    { 128, 64 }, // GAMEPAD_UI_LEFT_TRIGGER  
-    { 160, 64 }  // GAMEPAD_UI_RIGHT_TRIGGER 
+    { 32, 32 }, // GAMEPAD_UI_CIRCLE
+    { 64, 32 }, // GAMEPAD_UI_SQUARE
+    { 96, 32 }, // GAMEPAD_UI_TRIANGLE
+    { 128, 64 }, // GAMEPAD_UI_LEFT_TRIGGER
+    { 160, 64 }  // GAMEPAD_UI_RIGHT_TRIGGER
 },
 g_editions_tex_coords[CARD_EDITION_COUNT] = {
     { 1, 1 },   // CARD_EDITION_BASE
-    { 143, 1 }, // CARD_EDITION_FOIL        
-    { 72, 1 }, // CARD_EDITION_HOLOGRAPHIC        
-    { 1, 1 }, // CARD_EDITION_POLYCHROME      
-    { 1, 1 },   // CARD_EDITION_NEGATIVE  
+    { 143, 1 }, // CARD_EDITION_FOIL
+    { 72, 1 }, // CARD_EDITION_HOLOGRAPHIC
+    { 1, 1 }, // CARD_EDITION_POLYCHROME
+    { 1, 1 },   // CARD_EDITION_NEGATIVE
 },
 g_seal_tex_coords[] = {
     { 0, 0 },     // CARD_SEAL_NONE
@@ -123,7 +126,7 @@ void game_init_draw_load_fonts()
 bool game_init_draw()
 {
     char str[64];
-    
+
     if ((tex_enhancers = graphics_load_texture_from_archive_16bit("resources/textures/1x/Enhancers.png", 0, 0)) < 0) return false;
 
     struct Image deck_image = graphics_load_image_from_archive("resources/textures/1x/8BitDeck.png");
@@ -131,7 +134,7 @@ bool game_init_draw()
     game_draw_loading_text("Creating deck texture 0", COLOR_WHITE, COLOR_BLACK);
     tex_deck = graphics_load_texture_from_image_16bit(&deck_image, 0, 0);
     game_draw_loading_text("Creating deck texture 1", COLOR_WHITE, COLOR_BLACK);
-    tex_deck2 = graphics_load_texture_from_image_16bit(&deck_image, 71*7, 0);
+    tex_deck2 = graphics_load_texture_from_image_16bit(&deck_image, (TEXTURE_CARD_WIDTH + 2) * 7, 0);
     graphics_destroy_image(&deck_image);
 
     struct Image joker_image = graphics_load_image_from_archive("resources/textures/1x/Jokers.png");
@@ -193,11 +196,12 @@ bool game_init_draw()
     if (chips_image.data == NULL) return false;
     for(int i = 0; i < 2; i++)
     {
-        for(int j = 0; j < 2; j++)
+        for(int j = 0; j < 3; j++)
         {
-            sprintf(str, "Creating blind chips %d", i*2+j);
+	    DEBUG_PRINTF("Loading blind chips (%d)\n", i, j);
+            sprintf(str, "Creating blind chips texture %d", i*3+j);
             game_draw_loading_text(str, COLOR_WHITE, COLOR_BLACK);
-            tex_blind_chips[i][j] = graphics_load_texture_from_image_16bit(&chips_image, i * 15 * 34, j * 15 * 34);
+            tex_blind_chips[i][j] = graphics_load_texture_from_image_16bit(&chips_image, i * (BLIND_CHIP_WIDTH + 2) * 15, j * (BLIND_CHIP_HEIGHT + 2) * 15);
         }
     }
     graphics_destroy_image(&chips_image);
@@ -219,7 +223,7 @@ void game_draw_clear_loading(uint32_t color)
 
 void game_draw_loading_text(const char *text, uint32_t color, uint32_t back_color)
 {
-    if (g_loading_text_y == 0.0f) game_draw_clear_loading(back_color); 
+    if (g_loading_text_y == 0.0f) game_draw_clear_loading(back_color);
     graphics_show_loading_text(font_small, text, 0, g_loading_text_y, 1.0f, color, false, COLOR_BLACK);
     g_loading_text_y += 8.0f;
     if (g_loading_text_y >= SCREEN_HEIGHT) g_loading_text_y = 0.0f;
@@ -245,13 +249,13 @@ void game_draw_card_hint(struct Card *card)
         top = card->draw.y + CARD_HEIGHT + 4.0f;
     }
     graphics_set_texture(-1, -1);
-    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF888888);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
     graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     char str[64];
     game_set_card_name(card, str);
     graphics_draw_text_center(font_small, str, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
-    
+
     sprintf(str, "#3+%d#- chips", game_util_get_card_original_chips(card));
     float text_y = top + 14.0f + 12.0f;
     graphics_draw_text_formatted_center(font_small, str, NULL, left + CARD_HINT_WIDTH / 2.0f, text_y, 1.0f, COLOR_BLACK);
@@ -309,7 +313,7 @@ void game_draw_joker_hint(struct Joker *joker)
     }
 
     graphics_set_texture(-1, -1);
-    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF888888);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
     graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, height - CARD_HINT_MIN_HEIGHT + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     graphics_draw_text_center(font_small, g_joker_types[joker->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
@@ -356,11 +360,11 @@ void game_draw_tarot_hint(struct Tarot *tarot)
     }
 
     graphics_set_texture(-1, -1);
-    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF888888);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
     graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     graphics_draw_text_center(font_small, g_tarot_types[tarot->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
-        
+
 
     for (int i = 0; i < line_count; i++)
     {
@@ -411,7 +415,7 @@ void game_draw_planet_hint(struct Planet *planet)
     int line_count = 4;
 
     float top = planet->draw.y + CARD_HEIGHT + 4.0f;
-    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;    
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
     float left = planet->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
     if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
     {
@@ -424,11 +428,11 @@ void game_draw_planet_hint(struct Planet *planet)
     }
 
     graphics_set_texture(-1, -1);
-    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF888888);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
     graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     graphics_draw_text_center(font_small, g_planet_types[planet->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
-    
+
     struct PlanetType *planet_type = &(g_planet_types[planet->type]);
 
     float text_y = top + 14.0f + 12.0f;
@@ -460,7 +464,7 @@ void game_draw_booster_hint(struct BoosterPack *booster)
     }
 
     float top = booster->draw.y + CARD_HEIGHT + 4.0f;
-    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;    
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
     float left = booster->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
 
     if (top + height > SCREEN_HEIGHT)
@@ -469,10 +473,10 @@ void game_draw_booster_hint(struct BoosterPack *booster)
     }
 
     graphics_set_texture(-1, -1);
-    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, 0xFF888888);
+    graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
     graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
-    graphics_draw_text_center(font_small, booster_type->name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);        
+    graphics_draw_text_center(font_small, booster_type->name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
 
     for (int i = 0; i < line_count; i++)
     {
@@ -583,130 +587,131 @@ uint32_t game_draw_lerp_colour(uint32_t colour_a, uint32_t colour_b, float t)
     int r = r_a + (int)((float)(r_b - r_a) * t);
     int g = g_a + (int)((float)(g_b - g_a) * t);
     int b = b_a + (int)((float)(b_b - b_a) * t);
-    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
-}
+	    return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
+	}
 
-void game_draw_card_effect_quad(float card_x, float card_y, float card_w, float card_h, float local_x, float local_y, float w, float h, uint32_t colour, float angle)
-{
-    float x = card_x + local_x;
-    float y = card_y + local_y;
-    float right = x + w;
-    float bottom = y + h;
-    float card_right = card_x + card_w;
-    float card_bottom = card_y + card_h;
+	void game_draw_card_effect_quad(float card_x, float card_y, float card_w, float card_h, float local_x, float local_y, float w, float h, uint32_t colour, float angle)
+	{
+	    float x = card_x + local_x;
+	    float y = card_y + local_y;
+	    float right = x + w;
+	    float bottom = y + h;
+	    float card_right = card_x + card_w;
+	    float card_bottom = card_y + card_h;
 
-    if (x < card_x)
-    {
-        w -= card_x - x;
-        x = card_x;
-    }
-    if (y < card_y)
-    {
-        h -= card_y - y;
-        y = card_y;
-    }
-    if (right > card_right) w -= right - card_right;
-    if (bottom > card_bottom) h -= bottom - card_bottom;
-    if (w <= 0.0f || h <= 0.0f) return;
+	    if (x < card_x)
+	    {
+		w -= card_x - x;
+		x = card_x;
+	    }
+	    if (y < card_y)
+	    {
+		h -= card_y - y;
+		y = card_y;
+	    }
+	    if (right > card_right) w -= right - card_right;
+	    if (bottom > card_bottom) h -= bottom - card_bottom;
+	    if (w <= 0.0f || h <= 0.0f) return;
 
-    graphics_draw_rotated_quad(x, y, w, h, 0, 0, 0, 0, colour, angle);
-}
+	    graphics_draw_rotated_quad(x, y, w, h, 0, 0, 0, 0, colour, angle);
+	}
 
-void game_draw_edition_shader(int edition, float x, float y, float w, float h, float angle, float seed)
-{
-    if (edition == CARD_EDITION_BASE) return;
+	void game_draw_edition_shader(int edition, float x, float y, float w, float h, float angle, float seed)
+	{
+	    if (edition == CARD_EDITION_BASE) return;
 
-    float time = (float)g_time * 0.035f + seed * 0.17f;
-    graphics_set_no_texture();
+	    float time = (float)g_time * 0.035f + seed * 0.17f;
+	    graphics_set_no_texture();
 
-    if (edition == CARD_EDITION_NEGATIVE)
-    {
-        graphics_draw_rotated_quad(x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f, 0, 0, 0, 0, 0x70453B34, angle);
+	    if (edition == CARD_EDITION_NEGATIVE)
+	    {
+		graphics_draw_rotated_quad(x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f, 0, 0, 0, 0, 0x70453B34, angle);
 
-        for (int i = 0; i < 5; i++)
-        {
-            float phase = time + (float)i * 1.37f;
-            float px = 3.0f + fmodf((phase * 9.0f + (float)i * 13.0f), w - 10.0f);
-            uint32_t colour = (i & 1) ? 0x385E5EBC : 0x3838599A;
-            game_draw_card_effect_quad(x, y, w, h, px, 5.0f, 2.0f, h - 10.0f, colour, angle);
-        }
-        return;
-    }
+		for (int i = 0; i < 5; i++)
+		{
+		    float phase = time + (float)i * 1.37f;
+		    float px = 3.0f + fmodf((phase * 9.0f + (float)i * 13.0f), w - 10.0f);
+		    uint32_t colour = (i & 1) ? 0x385E5EBC : 0x3838599A;
+		    game_draw_card_effect_quad(x, y, w, h, px, 5.0f, 2.0f, h - 10.0f, colour, angle);
+		}
+		return;
+	    }
 
-    if (edition == CARD_EDITION_FOIL)
-    {
-        float pulse = 0.5f + 0.5f * sinf(time * 1.8f);
-        uint32_t cool_tint = game_draw_lerp_colour(0x1AB6CAD8, 0x26FFFFFF, pulse);
-        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, cool_tint, angle);
-        graphics_draw_rotated_quad(x + 6.0f, y + 6.0f, w - 12.0f, h - 12.0f, 0, 0, 0, 0, 0x12FFFFFF, angle);
-        return;
-    }
+	    if (edition == CARD_EDITION_FOIL)
+	    {
+		float pulse = 0.5f + 0.5f * sinf(time * 1.8f);
+		uint32_t cool_tint = game_draw_lerp_colour(0x1AB6CAD8, 0x26FFFFFF, pulse);
+		graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, cool_tint, angle);
+		graphics_draw_rotated_quad(x + 6.0f, y + 6.0f, w - 12.0f, h - 12.0f, 0, 0, 0, 0, 0x12FFFFFF, angle);
+		return;
+	    }
 
-    if (edition == CARD_EDITION_HOLOGRAPHIC)
-    {
-        float pulse_a = 0.5f + 0.5f * sinf(time * 1.35f);
-        float pulse_b = 0.5f + 0.5f * cosf(time * 1.07f + 1.4f);
-        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x26FFC7EE, 0x2CE6F1FF, pulse_a), angle);
-        graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x18B6E9FF, 0x20FFDBF5, pulse_b), angle);
+	    if (edition == CARD_EDITION_HOLOGRAPHIC)
+	    {
+		float pulse_a = 0.5f + 0.5f * sinf(time * 1.35f);
+		float pulse_b = 0.5f + 0.5f * cosf(time * 1.07f + 1.4f);
+		graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x26FFC7EE, 0x2CE6F1FF, pulse_a), angle);
+		graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, game_draw_lerp_colour(0x18B6E9FF, 0x20FFDBF5, pulse_b), angle);
 
-        float pattern_left = 5.0f;
-        float pattern_top = 6.0f;
-        float pattern_w = w - 10.0f;
-        float pattern_h = h - 12.0f;
-        int cols = 5;
-        int rows = 8;
-        float cell_w = pattern_w / (float)cols;
-        float cell_h = pattern_h / (float)rows;
-        for (int row = 0; row < rows; row++)
-        {
-            for (int col = 0; col < cols; col++)
-            {
-                float local_x = pattern_left + (float)col * cell_w;
-                float local_y = pattern_top + (float)row * cell_h;
-                float shimmer = 0.5f + 0.5f * sinf(time * 1.4f + (float)(row * 3 + col) * 0.73f);
-                uint32_t colour = game_draw_lerp_colour(0x18FFFFFF, 0x26FFB9F1, shimmer);
-                game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.45f, local_y, 1.0f, cell_h * 0.8f, colour, angle);
-                game_draw_card_effect_quad(x, y, w, h, local_x, local_y + cell_h * 0.45f, cell_w * 0.8f, 1.0f, colour, angle);
-                if (((row + col) & 1) == 0)
-                {
-                    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.20f, local_y + cell_h * 0.20f, 2.0f, 2.0f, 0x22FFFFFF, angle);
-                    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.65f, local_y + cell_h * 0.65f, 2.0f, 2.0f, 0x1C8DEBFF, angle);
-                }
-            }
-        }
-        graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x10FFFFFF, angle);
-        return;
-    }
+		float pattern_left = 5.0f;
+		float pattern_top = 6.0f;
+		float pattern_w = w - 10.0f;
+		float pattern_h = h - 12.0f;
+		int cols = 5;
+		int rows = 8;
+		float cell_w = pattern_w / (float)cols;
+		float cell_h = pattern_h / (float)rows;
+		for (int row = 0; row < rows; row++)
+		{
+		    for (int col = 0; col < cols; col++)
+		    {
+			float local_x = pattern_left + (float)col * cell_w;
+			float local_y = pattern_top + (float)row * cell_h;
+			float shimmer = 0.5f + 0.5f * sinf(time * 1.4f + (float)(row * 3 + col) * 0.73f);
+			uint32_t colour = game_draw_lerp_colour(0x18FFFFFF, 0x26FFB9F1, shimmer);
+			game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.45f, local_y, 1.0f, cell_h * 0.8f, colour, angle);
+			game_draw_card_effect_quad(x, y, w, h, local_x, local_y + cell_h * 0.45f, cell_w * 0.8f, 1.0f, colour, angle);
+			if (((row + col) & 1) == 0)
+			{
+			    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.20f, local_y + cell_h * 0.20f, 2.0f, 2.0f, 0x22FFFFFF, angle);
+			    game_draw_card_effect_quad(x, y, w, h, local_x + cell_w * 0.65f, local_y + cell_h * 0.65f, 2.0f, 2.0f, 0x1C8DEBFF, angle);
+			}
+		    }
+		}
+		graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x10FFFFFF, angle);
+		return;
+	    }
 
-    if (edition == CARD_EDITION_POLYCHROME)
-    {
-        float pulse_a = 0.5f + 0.5f * sinf(time * 1.12f);
-        float pulse_b = 0.5f + 0.5f * sinf(time * 0.87f + 2.1f);
-        uint32_t rainbow_a = game_draw_lerp_colour(0x22FF4D72, 0x22FFE04D, pulse_a);
-        uint32_t rainbow_b = game_draw_lerp_colour(0x224DBDFF, 0x22B84DFF, pulse_b);
-        graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, rainbow_a, angle);
-        graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, rainbow_b, angle);
-        graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x14FFFFFF, angle);
-    }
-}
+	    if (edition == CARD_EDITION_POLYCHROME)
+	    {
+		float pulse_a = 0.5f + 0.5f * sinf(time * 1.12f);
+		float pulse_b = 0.5f + 0.5f * sinf(time * 0.87f + 2.1f);
+		uint32_t rainbow_a = game_draw_lerp_colour(0x22FF4D72, 0x22FFE04D, pulse_a);
+		uint32_t rainbow_b = game_draw_lerp_colour(0x224DBDFF, 0x22B84DFF, pulse_b);
+		graphics_draw_rotated_quad(x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0, 0, 0, 0, rainbow_a, angle);
+		graphics_draw_rotated_quad(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, 0, 0, 0, 0, rainbow_b, angle);
+		graphics_draw_rotated_quad(x + 8.0f, y + 8.0f, w - 16.0f, h - 16.0f, 0, 0, 0, 0, 0x14FFFFFF, angle);
+	    }
+	}
 
-void game_draw_card(struct Card *card, struct DrawObject *draw_override)
-{
-    struct DrawObject *draw = &card->draw;
-    if (draw_override != NULL)
-    {
-        draw = draw_override;
-    }
+	void game_draw_card(struct Card *card, struct DrawObject *draw_override)
+	{
+	    struct DrawObject *draw = &card->draw;
+	    if (draw_override != NULL)
+	    {
+		draw = draw_override;
+	    }
 
-    float x, y;
-    game_draw_get_oscillating_position(draw, &x, &y);
+	    float x, y;
+	    game_draw_get_oscillating_position(draw, &x, &y);
 
-    x -= ((CARD_WIDTH * draw->scale) - CARD_WIDTH) / 2.0f;
-    y -= ((CARD_HEIGHT * draw->scale) - CARD_HEIGHT) / 2.0f;
-    float w = CARD_WIDTH * draw->scale;
-    float h = CARD_HEIGHT * draw->scale;
+	    x -= ((CARD_WIDTH * draw->scale) - CARD_WIDTH) / 2.0f;
+	    y -= ((CARD_HEIGHT * draw->scale) - CARD_HEIGHT) / 2.0f;
+	    float w = CARD_WIDTH * draw->scale;
+	    float h = CARD_HEIGHT * draw->scale;
+	    card->draw.angle = -(SCREEN_WIDTH/2-x)/2000.0f;
 
-    if (card->face_down)
+	    if (card->face_down)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
         graphics_draw_rotated_quad(
@@ -717,7 +722,7 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
         if (card->draw.white_factor > 0.0f)
         {
             uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
-            graphics_draw_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+            graphics_draw_rotated_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
         }
         return;
     }
@@ -756,7 +761,7 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
     }
 
     if (card->edition != CARD_EDITION_BASE && card->edition != CARD_EDITION_NEGATIVE)
-    {        
+    {
         graphics_set_texture(tex_editions, GRAPHICS_TEXTURE_FILTER_LINEAR);
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[card->edition].x, g_editions_tex_coords[card->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, card->draw.angle);
     }
@@ -778,8 +783,8 @@ void game_draw_card(struct Card *card, struct DrawObject *draw_override)
     if (card->draw.white_factor > 0.0f)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
-        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);        
-        graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);        
+        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
+        graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
 
@@ -788,8 +793,8 @@ void game_draw_joker(struct Joker *joker)
     int tex_joker_x, tex_joker_y = 0;
     struct JokerType *joker_type = &g_joker_types[joker->type];
     tex_joker_x = joker_type->u / 7;
-    tex_joker_y = joker_type->v / 5; 
-    
+    tex_joker_y = joker_type->v / 5;
+
     float x, y;
     game_draw_get_oscillating_position(&(joker->draw), &x, &y);
 
@@ -811,9 +816,9 @@ void game_draw_joker(struct Joker *joker)
 
     if (joker->edition == CARD_EDITION_NEGATIVE)
     {
-        graphics_flush_quads();    
+        graphics_flush_quads();
         sceGuEnable(GU_COLOR_LOGIC_OP);
-        sceGuLogicalOp(GU_COPY_INVERTED);    
+        sceGuLogicalOp(GU_COPY_INVERTED);
         sceGuEnable(GU_ALPHA_TEST);
         sceGuAlphaFunc(GU_GREATER, 0, 0xFF);
     }
@@ -845,7 +850,7 @@ void game_draw_joker(struct Joker *joker)
     }
 
     if (joker->edition != CARD_EDITION_BASE && joker->edition != CARD_EDITION_NEGATIVE)
-    {        
+    {
         graphics_set_texture(tex_editions, GRAPHICS_TEXTURE_FILTER_LINEAR);
         graphics_draw_rotated_quad(x, y, w, h, g_editions_tex_coords[joker->edition].x, g_editions_tex_coords[joker->edition].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, 0x7FFFFFFF, joker->draw.angle);
     }
@@ -902,7 +907,7 @@ void game_draw_price_tag(struct DrawObject *draw, int price)
     graphics_draw_quad(card_x + (CARD_WIDTH / 2.0f) - 15.0f, card_y - 15.0f, 30.0f, 16.0f, 0, 0, 0, 0, COLOR_DARK_GREY_2);
     char str[16];
     sprintf(str, "$%d", price);
-    graphics_draw_text_center(font_small, str, card_x + (CARD_WIDTH / 2.0f), card_y - 7.0f, 1.0f, COLOR_WHITE);
+    graphics_draw_text_center(font_small, str, card_x + (CARD_WIDTH / 2.0f), card_y - 7.0f, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
 }
 
 void game_draw_tarot(struct Tarot *tarot)
@@ -925,11 +930,11 @@ void game_draw_tarot(struct Tarot *tarot)
         1 + (tarot_type->u - tex_tarot_x * 7) * (TEXTURE_CARD_WIDTH + 2),
         1 + (tarot_type->v - tex_tarot_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, tarot->draw.angle);
-    
+
     if (tarot->draw.white_factor > 0.0f)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
-        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (tarot->draw.white_factor > 1.0f ? 1.0f : tarot->draw.white_factor))<<24);        
+        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (tarot->draw.white_factor > 1.0f ? 1.0f : tarot->draw.white_factor))<<24);
         graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
@@ -983,29 +988,29 @@ void game_draw_planet(struct Planet *planet)
         1 + (planet_type->u - tex_planet_x * 7) * (TEXTURE_CARD_WIDTH + 2),
         1 + (planet_type->v - tex_planet_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, planet->draw.angle);
-    
+
     if (planet->draw.white_factor > 0.0f)
     {
         graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
-        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (planet->draw.white_factor > 1.0f ? 1.0f : planet->draw.white_factor))<<24);        
+        uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (planet->draw.white_factor > 1.0f ? 1.0f : planet->draw.white_factor))<<24);
         graphics_draw_quad(x, y, w, h, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
     }
 }
 
 void game_draw_booster(struct BoosterPack *booster)
 {
-    int text_booster_y = 0;
+    int tex_booster_y = 0;
     struct BoosterPackType *booster_type = &(g_booster_types[booster->type][booster->size][booster->image]);
-    text_booster_y = booster_type->v / 5;
+    tex_booster_y = booster_type->v / 5;
 
     float x, y;
     game_draw_get_oscillating_position(&(booster->draw), &x, &y);
 
-    graphics_set_texture(tex_boosters[text_booster_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
+    graphics_set_texture(tex_boosters[tex_booster_y], GRAPHICS_TEXTURE_FILTER_LINEAR);
     graphics_draw_rotated_quad(
         x, y, BOOSTER_WIDTH, BOOSTER_HEIGHT,
         1 + (booster_type->u) * (TEXTURE_CARD_WIDTH + 2),
-        1 + (booster_type->v - text_booster_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
+        1 + (booster_type->v - tex_booster_y * 5) * (TEXTURE_CARD_HEIGHT + 2),
         TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, booster->draw.angle);
     game_draw_price_tag(&(booster->draw), game_util_get_booster_price(booster));
 }
@@ -1015,7 +1020,7 @@ void game_draw_shop_singles()
     for (int i = 0; i < g_game_state.shop.total_items; i++)
     {
         if (!g_game_state.shop.items[i].available) continue;
-        
+
         if (g_game_state.shop.items[i].type == ITEM_TYPE_JOKER)
         {
             struct Joker *joker = &(g_game_state.shop.items[i].info.joker);
@@ -1047,7 +1052,7 @@ void game_draw_shop_boosters()
     for (int i = 0; i < g_game_state.shop.total_boosters; i++)
     {
         if (!g_game_state.shop.boosters[i].available) continue;
-        
+
         struct BoosterPack *booster = &(g_game_state.shop.boosters[i].booster);
         game_draw_booster(booster);
     }
@@ -1062,7 +1067,7 @@ void game_draw_shop_selected_single()
         {
             case ITEM_TYPE_JOKER:
                 game_draw_joker_hint(&(g_game_state.shop.items[g_game_state.highlighted_item].info.joker));
-                draw = &g_game_state.shop.items[g_game_state.highlighted_item].info.joker.draw;                
+                draw = &g_game_state.shop.items[g_game_state.highlighted_item].info.joker.draw;
                 break;
             case ITEM_TYPE_CARD:
                 game_draw_card_hint(&(g_game_state.shop.items[g_game_state.highlighted_item].info.card));
@@ -1099,7 +1104,7 @@ void game_draw_shop_selected_booster()
 {
     if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_SHOP_BOOSTERS)
     {
-        struct DrawObject *draw = &(g_game_state.shop.boosters[g_game_state.highlighted_item].booster.draw);        
+        struct DrawObject *draw = &(g_game_state.shop.boosters[g_game_state.highlighted_item].booster.draw);
 
         game_draw_booster_frame(draw);
         game_draw_item_button(draw, GAMEPAD_UI_RIGHT_TRIGGER, "Open", NULL, COLOR_GREEN_BUTTON, false);
@@ -1109,7 +1114,7 @@ void game_draw_shop_selected_booster()
 
 void game_draw_consumables()
 {
-    graphics_draw_solid_quad(DRAW_CONSUMABLES_X, DRAW_CONSUMABLES_y, DRAW_CONSUMABLES_WIDTH, CARD_HEIGHT, 0x66000000);
+    graphics_draw_solid_quad(DRAW_CONSUMABLES_X, DRAW_CONSUMABLES_y, DRAW_CONSUMABLES_WIDTH, CARD_HEIGHT, COLOR_SHADOW);
 
     for (int i = 0; i < g_game_state.consumables.item_count; i++)
     {
@@ -1124,7 +1129,7 @@ void game_draw_consumables()
     graphics_draw_text(font_small, str, DRAW_CONSUMABLES_X + 2.0f, DRAW_CONSUMABLES_y + CARD_HEIGHT + 1.0f, 1.0f, COLOR_WHITE);
 
     if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_CONSUMABLES)
-    {        
+    {
         if (g_game_state.consumables.items[g_game_state.highlighted_item].type == ITEM_TYPE_PLANET)
         {
             struct Planet *selected_planet = &(g_game_state.consumables.items[g_game_state.highlighted_item].planet);
@@ -1160,7 +1165,7 @@ void game_draw_consumables()
 
 void game_draw_top_jokers()
 {
-    graphics_draw_solid_quad(DRAW_JOKERS_X, DRAW_JOKERS_Y, DRAW_JOKERS_WIDTH, CARD_HEIGHT, 0x66000000);
+    graphics_draw_solid_quad(DRAW_JOKERS_X, DRAW_JOKERS_Y, DRAW_JOKERS_WIDTH, CARD_HEIGHT, COLOR_SHADOW);
 
     for (int i = 0; i < g_game_state.jokers.joker_count; i++)
     {
@@ -1186,7 +1191,7 @@ void game_draw_top_jokers()
 void game_draw_ingame_hand()
 {
     graphics_set_no_texture();
-    graphics_draw_quad(DRAW_HAND_X, game_get_hand_y(), DRAW_HAND_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, 0x66000000);
+    graphics_draw_quad(DRAW_HAND_X, game_get_hand_y(), DRAW_HAND_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, COLOR_SHADOW);
 
     for (int i = 0; i < g_game_state.hand.card_count; i++)
     {
@@ -1224,7 +1229,7 @@ void game_draw_ingame_hand()
         {
             graphics_draw_quad(x + 1.0f, y + 13.0f, 37.0f, 16.0f, 0, 0, 0, 0, COLOR_WHITE);
         }
-        graphics_draw_quad(x + 3.0f, y + 14.0f, 34.0f, 14.0f, 0, 0, 0, 0, 0xFF0097FC);        
+        graphics_draw_quad(x + 3.0f, y + 14.0f, 34.0f, 14.0f, 0, 0, 0, 0, 0xFF0097FC);
         graphics_draw_text_center(font_small, "Rank", x + 20.0f, y + 20.0f, 1.0f, COLOR_WHITE);
         graphics_set_no_texture();
         if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_SORT_HAND_SUIT)
@@ -1263,14 +1268,14 @@ void game_draw_ingame_hand()
         graphics_draw_quad(x + 60.0f, y + 4.0f, 16.0f, 16.0f,
             g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].x,
             g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].y,
-            32, 32, COLOR_WHITE);        
+            32, 32, COLOR_WHITE);
     }
 }
 
 void game_draw_booster_hand()
 {
     graphics_set_no_texture();
-    graphics_draw_quad(DRAW_HAND_X, DRAW_HAND_Y_IN_BOOSTER, DRAW_HAND_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, 0x66000000);
+    graphics_draw_quad(DRAW_HAND_X, DRAW_HAND_Y_IN_BOOSTER, DRAW_HAND_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, COLOR_SHADOW);
 
     for (int i = 0; i < g_game_state.hand.card_count; i++)
     {
@@ -1303,7 +1308,7 @@ void game_draw_deck()
 
     // Draw deck
     graphics_set_texture(tex_enhancers, GRAPHICS_TEXTURE_FILTER_LINEAR);
-    graphics_draw_quad(DRAW_DECK_X, DRAW_DECK_Y, CARD_WIDTH, CARD_HEIGHT, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE);    
+    graphics_draw_quad(DRAW_DECK_X, DRAW_DECK_Y, CARD_WIDTH, CARD_HEIGHT, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE);
     // Deck size
     sprintf(str, "%d/%d", g_game_state.current_deck.card_count, g_game_state.full_deck.card_count);
     graphics_draw_text_center(font_small, str, DRAW_DECK_X + (CARD_WIDTH / 2.0f), DRAW_DECK_Y + CARD_HEIGHT + 8.0f, 1.0f, COLOR_WHITE);
@@ -1457,7 +1462,7 @@ void game_draw_left_info()
     audio_set_score_flame_intensity(score_flame_intensity);
 
     graphics_set_no_texture();
-    graphics_draw_quad(2, 2, DRAW_LEFT_INFO_WIDTH, SCREEN_HEIGHT - 4, 0, 0, 0, 0, COLOR_DARK_GREY);
+    graphics_draw_quad(2, 0, DRAW_LEFT_INFO_WIDTH, SCREEN_HEIGHT, 0, 0, 0, 0, COLOR_DARK_GREY);
 
     int y = 10.0f;
 
@@ -1528,11 +1533,11 @@ void game_draw_left_info()
     graphics_set_no_texture();
     graphics_draw_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 30, 0, 0, 0, 0, COLOR_DARK_GREY_2);
 
-    graphics_draw_text(font_big, "Round Score", 6, y, 1.0f, COLOR_WHITE);    
-    
+    graphics_draw_text(font_big, "Round Score", 6, y, 1.0f, COLOR_WHITE);
+
     y += 12;
     graphics_set_no_texture();
-    graphics_draw_quad(6, y, 88, 12, 0, 0, 0, 0, 0xFF666666);
+    graphics_draw_quad(6, y, 88, 12, 0, 0, 0, 0, COLOR_DARK_GREY);
     y += 2;
     sprintf(str, "%g", g_game_state.score);
     graphics_draw_text_center(font_big, str, 2.0f + (DRAW_LEFT_INFO_WIDTH / 2.0f), y + 4, 1.0f, COLOR_WHITE);
@@ -1569,7 +1574,7 @@ void game_draw_left_info()
     {
         graphics_draw_quad(6, y, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_BLUE);
         graphics_draw_quad(56, y, 38, 12, 0, 0, 0, 0, COLOR_LIGHT_RED);
-    }    
+    }
 
     y += 2;
     game_draw_format_score_value(str, sizeof(str), g_game_state.current_base_chips);
@@ -1581,7 +1586,7 @@ void game_draw_left_info()
 
     y += 22;
     graphics_set_no_texture();
-    graphics_draw_quad(4, y - 4, DRAW_LEFT_INFO_WIDTH - 4, 32, 0, 0, 0, 0, COLOR_DARK_GREY_2);    
+    graphics_draw_quad(4, y - 4, DRAW_LEFT_INFO_WIDTH - 4, 32, 0, 0, 0, 0, COLOR_DARK_GREY_2);
 
     game_draw_text_fit_center(font_small, "Hands", 2.0f + DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4, 42.0f, 1.0f, COLOR_WHITE);
     game_draw_text_fit_center_min(font_small, "Discards", 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 46.0f, 1.0f, 0.90f, COLOR_WHITE);
@@ -1605,7 +1610,7 @@ void game_draw_left_info()
 
     y += 20;
     graphics_set_no_texture();
-    graphics_draw_quad(4, y - 4, DRAW_LEFT_INFO_WIDTH - 4, 32, 0, 0, 0, 0, COLOR_DARK_GREY_2);    
+    graphics_draw_quad(4, y - 4, DRAW_LEFT_INFO_WIDTH - 4, 32, 0, 0, 0, 0, COLOR_DARK_GREY_2);
 
     graphics_draw_text_center(font_small, "Ante", 2.0f + DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4, 1.0f, COLOR_WHITE);
     graphics_draw_text_center(font_small, "Round", 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 1.0f, COLOR_WHITE);
@@ -1618,11 +1623,11 @@ void game_draw_left_info()
     graphics_draw_text_formatted_center(font_small, str, NULL, 2.0f + DRAW_LEFT_INFO_WIDTH / 4.0f, y + 4, 1.0f, COLOR_WHITE);
     sprintf(str, "%d", g_game_state.round);
     graphics_draw_text_center(font_small, str, 3.0f * (DRAW_LEFT_INFO_WIDTH / 4.0f), y + 4, 1.0f, COLOR_TEXT_ORANGE);
-    
+
     y += 15;
     if (g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_RUN_INFO)
     {
-        graphics_draw_solid_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 24.0f, COLOR_WHITE);        
+        graphics_draw_solid_quad(4, y - 2, DRAW_LEFT_INFO_WIDTH - 4, 24.0f, COLOR_WHITE);
     }
     graphics_draw_solid_quad(6, y, DRAW_LEFT_INFO_WIDTH - 8, 20.0f, COLOR_LIGHT_RED);
     graphics_draw_text_center(font_small, "Run Info", (DRAW_LEFT_INFO_WIDTH / 2.0f) + 4, y + 10, 1.0f, COLOR_WHITE);
@@ -1639,47 +1644,54 @@ void game_draw_cash_out_panel()
     graphics_draw_quad(x, y, 250, SCREEN_HEIGHT - 100, 0, 0, 0, 0, COLOR_DARK_GREY);
     y += 16;
     if (g_game_state.cash_out_done)
-    {        
+    {
         sprintf(str, "Cash Out: $%d", g_game_state.cash_out_value);
         float str_size = (float)strlen(str) * 8.0f;
         graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 6.0f, y - 10.0f, str_size + 12.0f, 20.0f, COLOR_WHITE);
-        graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 4.0f, y - 8.0f, str_size + 8.0f, 16.0f, COLOR_LIGHT_RED);
+        graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 4.0f, y - 8.0f, str_size + 8.0f, 16.0f, COLOR_TEXT_ORANGE);
         graphics_draw_text_center(font_big, str, (140.0f + 125.0f), y, 1.0f, COLOR_WHITE);
     }
     y += 20;
     if (g_game_state.cash_out_blind > -1)
     {
-        graphics_draw_text(font_small, game_util_get_blind_name(g_game_state.blind), x + 4, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_blind);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, game_util_get_blind_name(g_game_state.blind), x + 4, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+	y += BLIND_CHIP_HEIGHT;
+	graphics_draw_text(font_small, "........................................", x + 4, y, 1.0f, COLOR_WHITE);
+	y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_hands > -1)
+    if (g_game_state.cash_out_hands > 0)
     {
-        graphics_draw_text(font_small, "Remaining hands", x + 4, y, 1.0f, COLOR_WHITE);
+        sprintf(str, "%d", g_game_state.cash_out_hands);
+		graphics_draw_text(font_big, str, x+4, y, 1.0f, COLOR_TEXT_BLUE);
+        graphics_draw_text(font_small, "Remaining hands ($1 each)", x + 4 + 16, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_hands);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_interest > -1)
+    if (g_game_state.cash_out_interest > 0)
     {
-        graphics_draw_text(font_small, g_game_state.deck_type == DECK_TYPE_GREEN ? "Discards" : "Interest", x + 4, y, 1.0f, COLOR_WHITE);
+        sprintf(str, "%d", g_game_state.cash_out_interest);
+	graphics_draw_text(font_big, str, x + 4, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        graphics_draw_text(font_small, g_game_state.deck_type == DECK_TYPE_GREEN ? "Discards" : "Interest", x + 4 + 16, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_interest);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_jokers > -1)
+    if (g_game_state.cash_out_jokers > 0)
     {
+        sprintf(str, "%d", g_game_state.cash_out_jokers);
         graphics_draw_text(font_small, "Jokers", x + 4, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_jokers);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
     }
 }
 
 void game_draw_booster_items()
 {
     graphics_set_no_texture();
-    graphics_draw_quad(DRAW_BOOSTER_ITEMS_X, DRAW_BOOSTER_ITEMS_Y, DRAW_BOOSTER_ITEMS_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, 0x66000000);
+    graphics_draw_quad(DRAW_BOOSTER_ITEMS_X, DRAW_BOOSTER_ITEMS_Y, DRAW_BOOSTER_ITEMS_WIDTH, CARD_HEIGHT, 0, 0, 0, 0, COLOR_SHADOW);
 
     for (int i = 0; i < g_game_state.shop.booster_total_items; i++)
     {
@@ -1701,7 +1713,7 @@ void game_draw_booster_items()
                     break;
                 case ITEM_TYPE_SPECTRAL:
                     game_draw_spectral(&(g_game_state.shop.booster_items[i].info.spectral));
-                    break;                    
+                    break;
             }
         }
     }
@@ -1737,7 +1749,7 @@ void game_draw_booster_items()
 
 void game_draw_shop()
 {
-    game_draw_left_info();    
+    game_draw_left_info();
 
     game_draw_deck();
 
@@ -1767,7 +1779,7 @@ void game_draw_shop()
             char str[16];
             sprintf(str, "$%d", game_util_get_reroll_cost());
             graphics_draw_text_center(font_small, str, x + 4.0f + 40.0f, y + 8.0f + 30.0f + 15.0f + 8.0f, 1.0f, COLOR_WHITE);
-            
+
             // Singles
             graphics_draw_solid_quad(x + 92.0f, y + 4.0f, 200.0f, 80.0f, COLOR_DARK_GREY);
             game_draw_shop_singles();
@@ -1777,7 +1789,7 @@ void game_draw_shop()
             game_draw_shop_boosters();
 
             game_draw_shop_selected_single();
-            
+
             game_draw_shop_selected_booster();
 
             break;
@@ -1788,12 +1800,12 @@ void game_draw_shop()
         }
         case GAME_SUBSTAGE_SHOP_BOOSTER_NO_HAND:
         {
-            graphics_draw_solid_quad(DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f) - 50.0f, DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT, 100.0f, 30.0f, COLOR_DARK_GREY_2);            
+            graphics_draw_solid_quad(DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f) - 50.0f, DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT, 100.0f, 30.0f, COLOR_DARK_GREY_2);
             graphics_draw_text_center(font_big, g_game_state.shop.opened_booster.size == BOOSTER_PACK_SIZE_MEGA ? "Choose 2" : "Choose 1",
                 DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f), DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT + 15.0f, 1.0f, COLOR_WHITE);
 
             game_draw_booster_items();
-            
+
             break;
         }
     }
@@ -1834,20 +1846,20 @@ void game_draw_score_number()
         switch (g_game_state.score_number.score_number_type)
         {
             case SCORE_NUMBER_ADD_CHIPS:
-                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_BLUE, g_game_state.score_number.back_quad_angle);
+                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_SCORE_NUMBER_TEXT_CHIPS, g_game_state.score_number.back_quad_angle);
                 graphics_draw_text_center(font_big, g_game_state.score_number.text, x, y, g_game_state.score_number.text_scale, COLOR_WHITE);
                 break;
             case SCORE_NUMBER_ADD_MULT:
-                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_RED, g_game_state.score_number.back_quad_angle);
+                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_SCORE_NUMBER_TEXT_ADD_MULT, g_game_state.score_number.back_quad_angle);
                 graphics_draw_text_center(font_big, g_game_state.score_number.text, x, y, g_game_state.score_number.text_scale * 0.8, COLOR_WHITE);
                 break;
             case SCORE_NUMBER_MULT_MULT:
             case SCORE_NUMBER_AGAIN:
-                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_RED, g_game_state.score_number.back_quad_angle);
+                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_SCORE_NUMBER_TEXT_MULT_MULT, g_game_state.score_number.back_quad_angle);
                 graphics_draw_text_center(font_big, g_game_state.score_number.text, x, y, g_game_state.score_number.text_scale * 0.8, COLOR_WHITE);
                 break;
             case SCORE_NUMBER_ADD_MONEY:
-                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_YELLOW, g_game_state.score_number.back_quad_angle);
+                graphics_draw_rotated_quad(x - quad_size / 2.0f, y - quad_size / 2.0f, quad_size, quad_size, 0, 0, 0, 0, COLOR_SCORE_NUMBER_TEXT_MONEY, g_game_state.score_number.back_quad_angle);
                 graphics_draw_text_center(font_big, g_game_state.score_number.text, x, y, g_game_state.score_number.text_scale, COLOR_WHITE);
             default:
                 break;
@@ -1914,7 +1926,7 @@ void game_draw_end_game_info(const char *title, int color)
     graphics_draw_solid_quad(x + (END_GAME_WIDTH / 2.0f), y - 2.0f, (END_GAME_WIDTH / 2.0f) - 14.0f, 12.0f, COLOR_DARK_GREY);
     graphics_draw_text_center(font_small, "Times Rerolled", x + 58.0f, y + 4.0f, 1.0f, COLOR_WHITE);
     sprintf(str, "%d", g_game_state.stats.times_rerolled);
-    graphics_draw_text_center(font_small, str, x + (END_GAME_WIDTH / 2.0f) + 54.0f, y + 4.0f, 1.0f, COLOR_WHITE);    
+    graphics_draw_text_center(font_small, str, x + (END_GAME_WIDTH / 2.0f) + 54.0f, y + 4.0f, 1.0f, COLOR_WHITE);
     y += 30.0f;
     graphics_draw_solid_quad(x + (END_GAME_WIDTH - 100.0f) / 2.0f - 2.0f, y - 6.0f - 2.0f, 100.0f + 4.0f, 24.0f, COLOR_WHITE);
     graphics_draw_solid_quad(x + (END_GAME_WIDTH - 100.0f) / 2.0f, y - 6.0f, 100.0f, 20.0f, COLOR_RED_BUTTON);
@@ -1945,7 +1957,7 @@ void game_draw_ingame()
     {
         case GAME_SUBSTAGE_INGAME_PICK_HAND:
         {
-            game_draw_ingame_hand();            
+            game_draw_ingame_hand();
             break;
         }
         case GAME_SUBSTAGE_INGAME_WON:
@@ -2032,7 +2044,7 @@ void game_draw_blind_select()
 {
     char str[32];
 
-    game_draw_left_info();    
+    game_draw_left_info();
 
     game_draw_deck();
 
@@ -2047,7 +2059,7 @@ void game_draw_blind_select()
         {
             graphics_draw_quad(x - 2, y - 2, 94, SCREEN_HEIGHT - 82, 0, 0, 0, 0, COLOR_WHITE);
         }
-        
+
         graphics_draw_quad(x, y, 90, SCREEN_HEIGHT - 84, 0, 0, 0, 0, COLOR_DARK_GREY);
 
         y += 5;
@@ -2061,7 +2073,7 @@ void game_draw_blind_select()
                 blind_row = g_boss_blind_tex_rows[0];
             }
         }
-        
+
         int frame = (g_game_counter / 4) % 21;
         graphics_set_texture(tex_blind_chips[frame/15][blind_row/15], GRAPHICS_TEXTURE_FILTER_NEAREST);
         graphics_draw_quad(x + 30, y, 30, 30, (frame % 15) * 34, (blind_row % 15) * 34, 34, 34, COLOR_WHITE);
@@ -2289,7 +2301,7 @@ void game_draw_offscreen_deck_info()
             draw->x += (SCREEN_WIDTH - DRAW_DECK_INFO_WIDTH) / 2.0f;
             draw->y += (SCREEN_HEIGHT - DRAW_DECK_INFO_HEIGHT) / 2.0f;
         }
-    }    
+    }
 
     graphics_unset_offscreen_render_target();
 }
@@ -2368,7 +2380,7 @@ void game_draw_deck_info()
         else
         {
             sprintf(str, "%d", g_game_state.deck_info.rank_count[i]);
-        }        
+        }
         graphics_draw_text_center(font_small, str, left + suit_left + 18.0f, top + suit_top + c * 14.0f, 1.0f, g_game_state.deck_info.effective ? COLOR_LIGHT_BLUE : COLOR_WHITE);
     }
 
@@ -2437,7 +2449,7 @@ void game_draw_run_info()
     for (int i = 1; i < GAME_POKER_HAND_COUNT; i++)
     {
         graphics_draw_solid_quad(left + 4.0f, top + y - 2.0f, 304.0f, 12.0f, COLOR_LIGHT_GREY);
-        
+
         graphics_draw_solid_quad(left + 179.0f, top + y - 2.0f, 92.0f, 12.0f, COLOR_DARK_GREY_2);
         graphics_draw_solid_quad(left + 180.0f, top + y - 1.0f, 40.0f, 10.0f, COLOR_LIGHT_BLUE);
         graphics_draw_solid_quad(left + 230.0f, top + y - 1.0f, 40.0f, 10.0f, COLOR_LIGHT_RED);
@@ -2528,7 +2540,7 @@ void game_draw_pause_menu()
     float box_y = (272.0f - box_h) / 2.0f;
 
     graphics_draw_solid_quad(box_x, box_y, box_w, box_h, COLOR_BLACK);
-    
+
     // Draw the border
     graphics_draw_solid_quad(box_x - 2.0f, box_y - 2.0f, box_w + 4.0f, 2.0f, COLOR_WHITE);
     graphics_draw_solid_quad(box_x - 2.0f, box_y + box_h, box_w + 4.0f, 2.0f, COLOR_WHITE);
@@ -2713,7 +2725,7 @@ static void game_get_deck_progress_text(int deck_type, char *dst)
 
 void game_draw_deck_select()
 {
-    graphics_clear(COLOR_BACKGROUND_2);
+    graphics_clear(COLOR_BACKGROUND);
 
     graphics_draw_solid_quad(0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BACKGROUND_2);
     graphics_draw_text_center(font_big, "Choose Deck", SCREEN_WIDTH / 2.0f, 10.0f, 1.0f, COLOR_WHITE);
@@ -2804,7 +2816,7 @@ void game_draw()
     switch (draw_stage)
     {
         case GAME_STAGE_BLINDS:
-            game_draw_blind_select();            
+            game_draw_blind_select();
             break;
         case GAME_STAGE_INGAME:
             game_draw_ingame();

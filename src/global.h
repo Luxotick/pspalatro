@@ -217,7 +217,7 @@ struct Cards
 struct CardIndex
 {
     struct Card *card;
-    int index;  
+    int index;
 };
 
 struct CardReferences
@@ -752,7 +752,7 @@ struct Item
 };
 
 struct GameState
-{        
+{
     struct Jokers jokers;
     struct Consumables consumables;
     struct Cards all_cards;
@@ -869,7 +869,7 @@ struct GameState
         double back_quad_scale;
         double back_quad_angle;
     } score_number;
-    
+
     bool show_highlighted_card;
     float cash_out_panel_y;
 
@@ -925,7 +925,7 @@ struct GameState
     int blind_focused_action;
     bool blind_tag_description_open;
     int skipped_blinds;
-    
+
 };
 
 extern struct GameState g_game_state;
@@ -1275,32 +1275,33 @@ struct Image
 #define COLOR_BLUE          0xFFFF0000
 #define COLOR_LIGHT_GREY    0xFF888888
 #define COLOR_LIGHT_GREY_2  0xFFC0C0C0
-#define COLOR_DARK_GREY     0xFF666666
-#define COLOR_DARK_GREY_2   0xFF444444
-#define COLOR_LIGHT_BLUE    0xFFEF8700
-#define COLOR_LIGHT_RED     0xFF8080FF
+#define COLOR_DARK_GREY     0xFF3C3A2E
+#define COLOR_DARK_GREY_2   0xFF252317
+#define COLOR_LIGHT_BLUE    0xFFFF9D00
+#define COLOR_LIGHT_RED     0xFF555FFE
 #define COLOR_LIGHT_BLUE_2  0xFFFF4040
 #define COLOR_LIGHT_RED_2   0xFF4040FF
 #define COLOR_YELLOW        0xFF49B3EF
+#define COLOR_SHADOW        0x3C000000
 
 #define COLOR_BACKGROUND    0xFF608000
 #define COLOR_BACKGROUND_2  0xFF808000
 
-#define COLOR_TEXT_RED      0xFF404CFF
-#define COLOR_TEXT_BLUE     0xFFFF9300
+#define COLOR_TEXT_RED      COLOR_LIGHT_RED
+#define COLOR_TEXT_BLUE     COLOR_LIGHT_BLUE
 #define COLOR_TEXT_GREEN    0xFF86BD35
-#define COLOR_TEXT_ORANGE   0xFF008FFF
+#define COLOR_TEXT_ORANGE   0xFF0098FF
 #define COLOR_TEXT_PURPLE   0xFF9C557B
-#define COLOR_TEXT_CYAN     0xFFCAA800
-#define COLOR_TEXT_YELLOW   0xFF49B3EF
+#define COLOR_TEXT_CYAN     COLOR_LIGHT_BLUE
+#define COLOR_TEXT_YELLOW   COLOR_YELLOW
 
-#define COLOR_RED_BUTTON    0xFF8080FF
-#define COLOR_GREEN_BUTTON  0xFF86BD35
+#define COLOR_RED_BUTTON    COLOR_LIGHT_RED
+#define COLOR_GREEN_BUTTON  COLOR_TEXT_GREEN
 
-#define COLOR_SCORE_NUMBER_TEXT_CHIPS       0xFFFFFFFF
-#define COLOR_SCORE_NUMBER_TEXT_ADD_MULT    0xFF8888FF
-#define COLOR_SCORE_NUMBER_TEXT_MULT_MULT   0xFF3333FF
-#define COLOR_SCORE_NUMBER_TEXT_MONEY       0xFFFFFF33
+#define COLOR_SCORE_NUMBER_TEXT_CHIPS       COLOR_LIGHT_BLUE
+#define COLOR_SCORE_NUMBER_TEXT_ADD_MULT    COLOR_LIGHT_RED
+#define COLOR_SCORE_NUMBER_TEXT_MULT_MULT   COLOR_LIGHT_RED
+#define COLOR_SCORE_NUMBER_TEXT_MONEY       0xFF58B9F3
 
 void graphics_init();
 int graphics_load_small_font();
