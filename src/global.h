@@ -217,7 +217,7 @@ struct Cards
 struct CardIndex
 {
     struct Card *card;
-    int index;  
+    int index;
 };
 
 struct CardReferences
@@ -752,7 +752,7 @@ struct Item
 };
 
 struct GameState
-{        
+{
     struct Jokers jokers;
     struct Consumables consumables;
     struct Cards all_cards;
@@ -869,7 +869,7 @@ struct GameState
         double back_quad_scale;
         double back_quad_angle;
     } score_number;
-    
+
     bool show_highlighted_card;
     float cash_out_panel_y;
 
@@ -925,7 +925,7 @@ struct GameState
     int blind_focused_action;
     bool blind_tag_description_open;
     int skipped_blinds;
-    
+
 };
 
 extern struct GameState g_game_state;

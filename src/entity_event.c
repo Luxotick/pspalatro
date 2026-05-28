@@ -273,7 +273,7 @@ float lerp4(float a, float b, float t, float exponent)
 {
     if (t < 0.0f) return a;
     if (t > 1.0f) return b;
-  
+
     float normalizedT;
     if (exponent > 0.0f) {
       normalizedT = powf(t, exponent);
@@ -282,7 +282,7 @@ float lerp4(float a, float b, float t, float exponent)
     } else {
       normalizedT = t; // Linear interpolation if exponent is 0
     }
-  
+
     return (1.0f - normalizedT) * a + normalizedT * b;
 }
 
@@ -506,7 +506,7 @@ void event_init_show_number(int index)
             strcpy(g_game_state.score_number.text, "AGAIN");
             break;
     }
-    g_game_state.score_number.back_quad_scale = 0.0;    
+    g_game_state.score_number.back_quad_scale = 0.0;
     g_current_quad_angle += 0.1;
     g_game_state.score_number.back_quad_angle = g_current_quad_angle;
 }
@@ -524,8 +524,8 @@ void event_func_show_number(int index)
         g_game_state.score_number.show_score_number = true;
     }
 
-    g_game_state.score_number.text_scale = lerp4(0.0, 1.5, event->duration == 0 ? 0.0f : ((float)event->current_time / ((float)event->duration / 4.0f)), -2.0f); 
-    g_game_state.score_number.back_quad_scale = lerp4(0.0, 2.0, event->duration == 0 ? 0.0f : ((float)event->current_time / ((float)event->duration / 2.0f)), -2.0f); 
+    g_game_state.score_number.text_scale = lerp4(0.0, 1.5, event->duration == 0 ? 0.0f : ((float)event->current_time / ((float)event->duration / 4.0f)), -2.0f);
+    g_game_state.score_number.back_quad_scale = lerp4(0.0, 2.0, event->duration == 0 ? 0.0f : ((float)event->current_time / ((float)event->duration / 2.0f)), -2.0f);
     g_game_state.score_number.back_quad_angle = lerp4(g_current_quad_angle, g_current_quad_angle + 0.2, event->duration == 0 ? 0.0f : ((float)event->current_time / ((float)event->duration / 2.0f)), -2.0f);
 }
 

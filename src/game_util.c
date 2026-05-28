@@ -516,7 +516,7 @@ int game_util_get_booster_price(struct BoosterPack *booster)
 int game_util_get_first_shop_single_index()
 {
     int index = -1;
-    
+
     do
     {
         index++;
@@ -545,12 +545,12 @@ void add_int_list_sorted_if_unique(struct IntList *list, int value)
         list->elements[0].value = value;
         list->elements[0].prev = NULL;
         list->elements[0].next = NULL;
-        list->first = list->elements;        
+        list->first = list->elements;
         list->count++;
         return;
     }
 
-    struct IntListElement *current = list->first;    
+    struct IntListElement *current = list->first;
     for (int i = 0; i < list->count; i++)
     {
         if (value == current->value) return;
@@ -576,7 +576,7 @@ void add_int_list_sorted_if_unique(struct IntList *list, int value)
             list->count++;
             return;
         }
-        
+
         current = current->next;
     }
 }
@@ -904,7 +904,7 @@ bool game_util_has_scoring_cards_rank(int rank)
 }
 
 bool game_util_is_card_face(struct Card *card)
-{    
+{
     if (game_util_has_joker_type(JOKER_TYPE_PAREIDOLIA)) return true;
     if (card->enhancement == CARD_ENHANCEMENT_STONE) return false;
     return game_util_is_card_rank(card, CARD_RANK_JACK) || game_util_is_card_rank(card, CARD_RANK_QUEEN) || game_util_is_card_rank(card, CARD_RANK_KING);
@@ -1161,7 +1161,7 @@ void game_util_get_tarot_hint_value(struct Tarot *tarot, char *dst)
                 break;
             }
         }
-        return;        
+        return;
     }
 
     sprintf(dst, "N/A");
@@ -1282,7 +1282,7 @@ int game_util_get_first_scoring_face_card_index()
         }
     }
 
-    return -1;    
+    return -1;
 }
 
 int game_util_get_index_first_scoring_card()
@@ -1295,7 +1295,7 @@ int game_util_get_index_first_scoring_card()
         }
     }
 
-    return -1; 
+    return -1;
 }
 
 void game_util_get_first_deck_info_card(int *card_x, int *card_y)
@@ -1340,7 +1340,7 @@ int game_util_get_hands()
     int hands = g_game_state.total_hands;
 
     hands -= game_util_get_real_joker_type_count(JOKER_TYPE_TROUBADOUR);
-    
+
     return MAX(1, hands);
 }
 
@@ -1384,6 +1384,6 @@ int game_util_get_random_booster_card_edition()
     else if (r < 50 + 25) return CARD_EDITION_FOIL;
     else if (r < 50 + 25 + 17) return CARD_EDITION_HOLOGRAPHIC;
     else return CARD_EDITION_POLYCHROME;
-    
+
     return CARD_EDITION_BASE;
 }

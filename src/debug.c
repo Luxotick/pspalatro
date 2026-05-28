@@ -10,12 +10,12 @@ void save_debug_log(const char* format, ...) {
     char buffer[256];
     va_list args;
     va_list args_copy;
-    
+
     va_start(args, format);
     va_copy(args_copy, args);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    
+
     // Also print to stdout for emulator/psplink
     vprintf(format, args_copy);
     printf("\n");

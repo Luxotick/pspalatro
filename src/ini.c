@@ -52,7 +52,7 @@ enum IniTokenType ini_read_token(char *buffer, int buffer_size)
             }
         }
     } while (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=');
-    
+
     if (c == '[')
     {
         if (g_ini_last_token == INI_TOKEN_ERROR ||
@@ -91,7 +91,7 @@ enum IniTokenType ini_read_token(char *buffer, int buffer_size)
                 buffer[i] = '\0';
                 g_ini_last_token = INI_TOKEN_KEY;
                 g_ini_next_token = INI_TOKEN_VALUE;
-                return INI_TOKEN_KEY;                
+                return INI_TOKEN_KEY;
             }
             else
             {
