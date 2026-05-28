@@ -3,8 +3,11 @@
 #define TEXTURE_CARD_WIDTH  69
 #define TEXTURE_CARD_HEIGHT 93
 
+#define BLIND_CHIP_WIDTH  32
+#define BLIND_CHIP_HEIGHT 32
+
 int tex_enhancers, tex_deck, tex_deck2, tex_gamepad_ui, tex_editions, tex_shop, tex_ui_assets, tex_tags;
-int tex_blind_chips[2][2];
+int tex_blind_chips[2][3];
 int tex_jokers[2][4];
 int tex_tarots[2][2];
 int tex_boosters[2];
@@ -131,7 +134,7 @@ bool game_init_draw()
     game_draw_loading_text("Creating deck texture 0", COLOR_WHITE, COLOR_BLACK);
     tex_deck = graphics_load_texture_from_image_16bit(&deck_image, 0, 0);
     game_draw_loading_text("Creating deck texture 1", COLOR_WHITE, COLOR_BLACK);
-    tex_deck2 = graphics_load_texture_from_image_16bit(&deck_image, 71*7, 0);
+    tex_deck2 = graphics_load_texture_from_image_16bit(&deck_image, (TEXTURE_CARD_WIDTH + 2) * 7, 0);
     graphics_destroy_image(&deck_image);
 
     struct Image joker_image = graphics_load_image_from_archive("resources/textures/1x/Jokers.png");
@@ -193,11 +196,12 @@ bool game_init_draw()
     if (chips_image.data == NULL) return false;
     for(int i = 0; i < 2; i++)
     {
-        for(int j = 0; j < 2; j++)
+        for(int j = 0; j < 3; j++)
         {
-            sprintf(str, "Creating blind chips %d", i*2+j);
+	    DEBUG_PRINTF("Loading blind chips (%d)\n", i, j);
+            sprintf(str, "Creating blind chips texture %d", i*3+j);
             game_draw_loading_text(str, COLOR_WHITE, COLOR_BLACK);
-            tex_blind_chips[i][j] = graphics_load_texture_from_image_16bit(&chips_image, i * 15 * 34, j * 15 * 34);
+            tex_blind_chips[i][j] = graphics_load_texture_from_image_16bit(&chips_image, i * (BLIND_CHIP_WIDTH + 2) * 15, j * (BLIND_CHIP_HEIGHT + 2) * 15);
         }
     }
     graphics_destroy_image(&chips_image);
