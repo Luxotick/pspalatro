@@ -722,7 +722,7 @@ uint32_t game_draw_lerp_colour(uint32_t colour_a, uint32_t colour_b, float t)
         if (card->draw.white_factor > 0.0f)
         {
             uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
-            graphics_draw_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color);
+            graphics_draw_rotated_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
         }
         return;
     }
@@ -907,7 +907,7 @@ void game_draw_price_tag(struct DrawObject *draw, int price)
     graphics_draw_quad(card_x + (CARD_WIDTH / 2.0f) - 15.0f, card_y - 15.0f, 30.0f, 16.0f, 0, 0, 0, 0, COLOR_DARK_GREY_2);
     char str[16];
     sprintf(str, "$%d", price);
-    graphics_draw_text_center(font_small, str, card_x + (CARD_WIDTH / 2.0f), card_y - 7.0f, 1.0f, COLOR_WHITE);
+    graphics_draw_text_center(font_small, str, card_x + (CARD_WIDTH / 2.0f), card_y - 7.0f, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
 }
 
 void game_draw_tarot(struct Tarot *tarot)
@@ -1462,7 +1462,7 @@ void game_draw_left_info()
     audio_set_score_flame_intensity(score_flame_intensity);
 
     graphics_set_no_texture();
-    graphics_draw_quad(2, 2, DRAW_LEFT_INFO_WIDTH, SCREEN_HEIGHT - 4, 0, 0, 0, 0, COLOR_DARK_GREY);
+    graphics_draw_quad(2, 0, DRAW_LEFT_INFO_WIDTH, SCREEN_HEIGHT, 0, 0, 0, 0, COLOR_DARK_GREY);
 
     int y = 10.0f;
 
@@ -1648,36 +1648,43 @@ void game_draw_cash_out_panel()
         sprintf(str, "Cash Out: $%d", g_game_state.cash_out_value);
         float str_size = (float)strlen(str) * 8.0f;
         graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 6.0f, y - 10.0f, str_size + 12.0f, 20.0f, COLOR_WHITE);
-        graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 4.0f, y - 8.0f, str_size + 8.0f, 16.0f, COLOR_LIGHT_RED);
+        graphics_draw_solid_quad((140.0f + 125.0f) - (str_size / 2.0f) - 4.0f, y - 8.0f, str_size + 8.0f, 16.0f, COLOR_TEXT_ORANGE);
         graphics_draw_text_center(font_big, str, (140.0f + 125.0f), y, 1.0f, COLOR_WHITE);
     }
     y += 20;
     if (g_game_state.cash_out_blind > -1)
     {
-        graphics_draw_text(font_small, game_util_get_blind_name(g_game_state.blind), x + 4, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_blind);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, game_util_get_blind_name(g_game_state.blind), x + 4, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+	y += BLIND_CHIP_HEIGHT;
+	graphics_draw_text(font_small, "........................................", x + 4, y, 1.0f, COLOR_WHITE);
+	y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_hands > -1)
+    if (g_game_state.cash_out_hands > 0)
     {
-        graphics_draw_text(font_small, "Remaining hands", x + 4, y, 1.0f, COLOR_WHITE);
+        sprintf(str, "%d", g_game_state.cash_out_hands);
+	graphics_draw_text(font_big, str, x+4, y, 1.0f, COLOR_TEXT_BLUE); 
+        graphics_draw_text(font_small, "Remaining hands ($1 each)", x + 4 + 16, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_hands);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_interest > -1)
+    if (g_game_state.cash_out_interest > 0)
     {
-        graphics_draw_text(font_small, g_game_state.deck_type == DECK_TYPE_GREEN ? "Discards" : "Interest", x + 4, y, 1.0f, COLOR_WHITE);
+        sprintf(str, "%d", g_game_state.cash_out_interest);
+	graphics_draw_text(font_big, str, x + 4, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        graphics_draw_text(font_small, g_game_state.deck_type == DECK_TYPE_GREEN ? "Discards" : "Interest", x + 4 + 16, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_interest);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
+        y += 16;
     }
-    y += 16;
-    if (g_game_state.cash_out_jokers > -1)
+    if (g_game_state.cash_out_jokers > 0)
     {
+        sprintf(str, "%d", g_game_state.cash_out_jokers);
         graphics_draw_text(font_small, "Jokers", x + 4, y, 1.0f, COLOR_WHITE);
         sprintf(str, "$%d", g_game_state.cash_out_jokers);
-        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_WHITE);
+        graphics_draw_text(font_small, str, x + 200, y, 1.0f, COLOR_SCORE_NUMBER_TEXT_MONEY);
     }
 }
 
