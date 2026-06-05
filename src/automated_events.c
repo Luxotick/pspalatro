@@ -388,6 +388,7 @@ bool automated_event_add_score()
 #define SCORE_PARAM_HAND_CARD_HAS_SCORED    6
 #define SCORE_PARAM_HAND_CARD_REPEAT        7
 #define SCORE_PARAM_SCORING_CARD_REPEAT     8
+#define SCORE_PARAM_HAND_BLOCKED_BY_BOSS    9
 
 void automated_event_score_init_jokers()
 {
@@ -439,12 +440,16 @@ bool automated_event_score()
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FIVE_OF_A_KIND) g_game_state.five_of_a_kind_enabled = true;
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FLUSH_FIVE) g_game_state.flush_five_enabled = true;
         if (g_game_state.current_poker_hand == GAME_POKER_HAND_FLUSH_HOUSE) g_game_state.flush_house_enabled = true;
-        if (game_util_is_boss_blind_active(BOSS_BLIND_OX) &&
+        bool hand_blocked_by_boss = game_util_is_selected_hand_blocked_by_boss_blind();
+        g_automated_event->params[SCORE_PARAM_HAND_BLOCKED_BY_BOSS] = hand_blocked_by_boss ? 1 : 0;
+        if (!hand_blocked_by_boss &&
+            game_util_is_boss_blind_active(BOSS_BLIND_OX) &&
             g_game_state.current_poker_hand == g_game_state.stats.most_played_poker_hand)
         {
             g_game_state.wealth = 0;
         }
-        if (game_util_is_boss_blind_active(BOSS_BLIND_ARM) &&
+        if (!hand_blocked_by_boss &&
+            game_util_is_boss_blind_active(BOSS_BLIND_ARM) &&
             g_game_state.poker_hand_level[g_game_state.current_poker_hand] > 1)
         {
             g_game_state.poker_hand_level[g_game_state.current_poker_hand]--;
@@ -454,7 +459,8 @@ bool automated_event_score()
             g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
             g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
         }
-        if (game_util_is_boss_blind_active(BOSS_BLIND_FLINT))
+        if (!hand_blocked_by_boss &&
+            game_util_is_boss_blind_active(BOSS_BLIND_FLINT))
         {
             g_game_state.current_base_chips = floor(g_game_state.current_base_chips / 2.0);
             g_game_state.current_base_mult = floor(g_game_state.current_base_mult / 2.0);
@@ -463,8 +469,16 @@ bool automated_event_score()
         {
             g_game_state.wealth -= g_game_state.played_hand.card_count;
         }
-        game_increment_played_poker_hand(g_game_state.current_poker_hand);
-        g_game_state.boss_played_hand_mask |= 1 << g_game_state.current_poker_hand;
+        if (hand_blocked_by_boss)
+        {
+            g_game_state.current_base_chips = 0;
+            g_game_state.current_base_mult = 0;
+        }
+        else
+        {
+            game_increment_played_poker_hand(g_game_state.current_poker_hand);
+            g_game_state.boss_played_hand_mask |= 1 << g_game_state.current_poker_hand;
+        }
         if (g_game_state.blind != GAME_BLIND_BOSS ||
             game_util_is_boss_blind_active(BOSS_BLIND_PILLAR))
         {
@@ -1601,7 +1615,12 @@ bool automated_event_score()
             g_game_state.selected_cards_count = 0;
         }
 
-        if (g_game_state.deck_type == DECK_TYPE_PLASMA)
+        if (AUTO_EVENT_VAL(SCORE_PARAM_HAND_BLOCKED_BY_BOSS))
+        {
+            g_game_state.current_base_chips = 0;
+            g_game_state.current_base_mult = 0;
+        }
+        else if (g_game_state.deck_type == DECK_TYPE_PLASMA)
         {
             double balanced = floor(((double)g_game_state.current_base_chips + (double)g_game_state.current_base_mult) / 2.0);
             g_game_state.score += balanced * balanced;

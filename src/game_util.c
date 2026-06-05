@@ -948,20 +948,25 @@ bool game_util_can_play_selected_hand()
         return false;
     }
 
+    return true;
+}
+
+bool game_util_is_selected_hand_blocked_by_boss_blind()
+{
     if (game_util_is_boss_blind_active(BOSS_BLIND_EYE) &&
         (g_game_state.boss_played_hand_mask & (1 << g_game_state.current_poker_hand)))
     {
-        return false;
+        return true;
     }
 
     if (game_util_is_boss_blind_active(BOSS_BLIND_MOUTH) &&
         g_game_state.boss_played_hand_mask != 0 &&
         !(g_game_state.boss_played_hand_mask & (1 << g_game_state.current_poker_hand)))
     {
-        return false;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 float game_util_get_item_position(int i, int item_count, float start_x, float width, float item_width)

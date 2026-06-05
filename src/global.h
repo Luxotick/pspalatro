@@ -1009,6 +1009,7 @@ int game_util_get_hand_size();
 int game_util_get_hands();
 int game_util_get_discards();
 bool game_util_is_boss_blind_active(int boss_blind_type);
+bool game_util_is_selected_hand_blocked_by_boss_blind();
 int game_util_get_shop_joker_edition();
 int game_util_get_random_booster_card_edition();
 
