@@ -1230,7 +1230,9 @@ void game_draw_ingame_hand()
         game_draw_card(g_game_state.hand.cards[i], NULL);
     }
 
-    if (g_game_state.show_highlighted_card && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_HAND)
+    // No tooltip while the hand is lowered for scoring: it covered the played cards
+    if (g_game_state.show_highlighted_card && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_HAND &&
+        game_get_hand_y() == DRAW_HAND_Y)
     {
         if (g_game_state.highlighted_item > -1 && g_game_state.highlighted_item < g_game_state.hand.card_count)
         {
