@@ -17,9 +17,6 @@ PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU);
 #include "game_input.c"
 #include "save_utility.c"
 #include "game.c"
-#ifdef TEST_MODE
-#include "test_harness.c"
-#endif
 
 struct DebugInfo g_debug_info;
 
@@ -98,9 +95,6 @@ int main(int argc, char **argv)
 
     if (init_more_stuff())
     {
-#ifdef TEST_MODE
-        test_harness_run();
-#endif
         while(running())
         {
             if (g_settings.audio) audio_update();
