@@ -953,6 +953,7 @@ bool game_util_is_joker_slot_available();
 bool game_util_is_consumable_slot_available();
 int game_util_get_joker_buy_price(struct Joker *joker);
 int game_util_get_joker_sell_price(struct Joker *joker);
+int game_util_get_tarot_money_preview(int tarot_type);
 int game_util_get_booster_price(struct BoosterPack *booster);
 int game_util_get_first_shop_single_index();
 // int game_util_get_new_shop_joker_type();

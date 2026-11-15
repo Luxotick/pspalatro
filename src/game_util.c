@@ -489,6 +489,27 @@ bool game_util_is_boss_blind_active(int boss_blind_type)
         g_game_state.boss_blind_type == boss_blind_type;
 }
 
+// Money a Hermit / Temperance would give right now, -1 for other tarots
+int game_util_get_tarot_money_preview(int tarot_type)
+{
+    switch (tarot_type)
+    {
+        case TAROT_TYPE_HERMIT:
+            return g_game_state.wealth > 0 ? MIN(g_game_state.wealth, 20) : 0;
+        case TAROT_TYPE_TEMPERANCE:
+        {
+            int joker_value = 0;
+            for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+            {
+                joker_value += game_util_get_joker_sell_price(&(g_game_state.jokers.jokers[i]));
+            }
+            return MIN(joker_value, 50);
+        }
+        default:
+            return -1;
+    }
+}
+
 bool game_util_is_joker_slot_available()
 {
     return (g_game_state.jokers.joker_count - g_game_state.jokers.negative_count) < g_game_state.joker_slots;

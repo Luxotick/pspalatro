@@ -3164,10 +3164,7 @@ bool automated_event_use_tarot()
             }
             case TAROT_TYPE_HERMIT:
             {
-                if (g_game_state.wealth > 0)
-                {
-                    g_game_state.wealth += g_game_state.wealth > 20 ? 20 : g_game_state.wealth;
-                }
+                g_game_state.wealth += game_util_get_tarot_money_preview(TAROT_TYPE_HERMIT);
 
                 g_game_state.last_used_consumable_item_type = ITEM_TYPE_TAROT;
                 g_game_state.last_used_consumable_tarot_planet_type = TAROT_TYPE_HERMIT;
@@ -3292,12 +3289,7 @@ bool automated_event_use_tarot()
             }
             case TAROT_TYPE_TEMPERANCE:
             {
-                int joker_value = 0;
-                for (int i = 0; i < g_game_state.jokers.joker_count; i++)
-                {
-                    joker_value += game_util_get_joker_sell_price(&(g_game_state.jokers.jokers[i]));
-                }
-                g_game_state.wealth += MIN(joker_value, 50);
+                g_game_state.wealth += game_util_get_tarot_money_preview(TAROT_TYPE_TEMPERANCE);
 
                 g_game_state.last_used_consumable_item_type = ITEM_TYPE_TAROT;
                 g_game_state.last_used_consumable_tarot_planet_type = TAROT_TYPE_TEMPERANCE;

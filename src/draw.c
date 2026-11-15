@@ -349,8 +349,12 @@ void game_draw_tarot_hint(struct Tarot *tarot)
         }
     }
 
+    // Hermit / Temperance also show what they would pay out right now
+    int money_preview = game_util_get_tarot_money_preview(tarot->type);
+    int total_lines = line_count + (money_preview >= 0 ? 1 : 0);
+
     float top = tarot->draw.y + CARD_HEIGHT + 4.0f;
-    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * total_lines;
     float left = tarot->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
     if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
     {
@@ -364,7 +368,7 @@ void game_draw_tarot_hint(struct Tarot *tarot)
 
     graphics_set_texture(-1, -1);
     graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
-    graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
+    graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * total_lines + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     graphics_draw_text_center(font_small, g_tarot_types[tarot->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
 
@@ -372,6 +376,13 @@ void game_draw_tarot_hint(struct Tarot *tarot)
     for (int i = 0; i < line_count; i++)
     {
         graphics_draw_text_formatted_center(font_small, g_tarot_types[tarot->type].hint_lines[i], (void*)tarot, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * i), 1.0f, COLOR_BLACK);
+    }
+
+    if (money_preview >= 0)
+    {
+        char str[32];
+        sprintf(str, "(Currently #5$%d#-)", money_preview);
+        graphics_draw_text_formatted_center(font_small, str, (void*)tarot, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * line_count), 1.0f, COLOR_BLACK);
     }
 }
 
