@@ -231,6 +231,9 @@ void game_draw_loading_text(const char *text, uint32_t color, uint32_t back_colo
 
 void game_draw_card_hint(struct Card *card)
 {
+    // Face-down cards must not reveal what they are
+    if (card->face_down) return;
+
     int line_count = 1;
     if (card->extra_chips > 0) line_count++;
     if (card->enhancement != CARD_ENHANCEMENT_NONE && card->enhancement != CARD_ENHANCEMENT_STONE) line_count++;
