@@ -2443,6 +2443,15 @@ void game_start_shop(bool init)
 
     if (init)
     {
+        // Undo per-round boss blind effects (Amber Acorn, Crimson Heart, Cerulean Bell)
+        for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+        {
+            g_game_state.jokers.jokers[i].face_down = false;
+            g_game_state.jokers.jokers[i].disabled = false;
+        }
+        g_game_state.boss_forced_selected_card_index = -1;
+        g_game_state.boss_forced_selected_card = NULL;
+
         g_game_state.shop.rerolls = 0;
 
         game_shop_set_singles();
