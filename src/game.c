@@ -1751,6 +1751,7 @@ void game_sort_hand()
 
 void game_start_ingame()
 {
+    g_hand_not_allowed = false;
     g_game_state.stage = GAME_STAGE_INGAME;
     g_game_state.sub_stage = GAME_SUBSTAGE_INGAME_PICK_HAND;
     g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_HAND;

@@ -508,6 +508,26 @@ bool automated_event_score()
 
     AUTO_EVENT_STAGE_WAIT(MOVE_TIMESPAN)
 
+    // A hand the boss blind does not allow (The Eye / The Mouth) is not scored:
+    // cross the cards out, show "Not Allowed!" and skip straight to discarding it
+    AUTO_EVENT_STAGE()
+    {
+        if (!AUTO_EVENT_VAL(SCORE_PARAM_HAND_BLOCKED_BY_BOSS))
+        {
+            AUTO_EVENT_GO_TO_STAGE(SCORE_PRE_SCORE_JOKER)
+        }
+        g_hand_not_allowed = true;
+        audio_play_sfx(AUDIO_SFX_CANCEL);
+    }
+
+    AUTO_EVENT_STAGE_WAIT(VARIABLE_TIME(60))
+
+    AUTO_EVENT_STAGE()
+    {
+        g_hand_not_allowed = false;
+        AUTO_EVENT_GO_TO_STAGE(DISCARD_DEALT_HAND)
+    }
+
     // *************
     //   Pre-Score
     // *************

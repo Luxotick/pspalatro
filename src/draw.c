@@ -488,6 +488,8 @@ void game_draw_booster_hint(struct BoosterPack *booster)
 }
 
 bool g_freeze_cards = false;
+// Set while a hand that the boss blind does not allow (The Eye / The Mouth) is shown
+bool g_hand_not_allowed = false;
 
 float sin_table[256] = {
  0.0000000f,  0.0245412f,  0.0490677f,  0.0735646f,  0.0980171f,  0.1224107f,  0.1467305f,  0.1709619f,
@@ -1194,6 +1196,30 @@ void game_draw_top_jokers()
     }
 }
 
+void game_draw_hand_not_allowed()
+{
+    graphics_set_no_texture();
+    for (int i = 0; i < g_game_state.played_hand.card_count; i++)
+    {
+        struct Card *card = g_game_state.played_hand.cards[i];
+        float x, y;
+        game_draw_get_oscillating_position(&card->draw, &x, &y);
+        float scale = card->draw.scale;
+        x -= ((CARD_WIDTH * scale) - CARD_WIDTH) / 2.0f;
+        y -= ((CARD_HEIGHT * scale) - CARD_HEIGHT) / 2.0f;
+        float w = CARD_WIDTH * scale;
+        float h = CARD_HEIGHT * scale;
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * scale, 27.0f * scale, 40.0f * scale, 9.0f * scale, 0xCC0000FF, card->draw.angle + 0.78f);
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * scale, 29.0f * scale, 40.0f * scale, 9.0f * scale, 0xCC0000FF, card->draw.angle - 0.78f);
+    }
+
+    float center_x = DRAW_HAND_X + DRAW_HAND_WIDTH / 2.0f;
+    float y = DRAW_SCORING_CARDS_Y - 30.0f;
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(center_x - 64.0f, y - 2.0f, 128.0f, 22.0f, COLOR_DARK_GREY);
+    graphics_draw_text_center(font_big, "Not Allowed!", center_x, y + 9.0f, 1.0f, COLOR_TEXT_RED);
+}
+
 void game_draw_ingame_hand()
 {
     graphics_set_no_texture();
@@ -1215,6 +1241,11 @@ void game_draw_ingame_hand()
     for (int i = 0; i < g_game_state.played_hand.card_count; i++)
     {
         game_draw_card(g_game_state.played_hand.cards[i], NULL);
+    }
+
+    if (g_hand_not_allowed)
+    {
+        game_draw_hand_not_allowed();
     }
 
     // Draw card count
