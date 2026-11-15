@@ -13,6 +13,12 @@ CFLAGS = -Wall -Wno-unused-label -G0 -Ofast
 ifeq ($(DEBUG), 1)
 CFLAGS += -DDEBUG_MODE=1
 endif
+ifeq ($(TEST), 1)
+CFLAGS += -DTEST_MODE=1
+endif
+ifeq ($(BASELINE), 1)
+CFLAGS += -DBASELINE=1
+endif
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
