@@ -239,6 +239,9 @@ void automated_event_set_cerulean_forced_card()
     g_game_state.current_poker_hand = game_get_selected_poker_hand(cards, 1, scoring_cards, &scoring_cards_count);
     g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
     g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
+
+    // Raise the forced card right away instead of on the next manual selection
+    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, -1, 0, 0, 10);
 }
 
 void automated_event_set_crimson_disabled_joker()
@@ -259,6 +262,14 @@ void automated_event_set_crimson_disabled_joker()
         g_game_state.jokers.jokers[index].disabled = true;
         event_add_pop_joker(index, VARIABLE_TIME(30));
     }
+}
+
+// Boss effects applied every time a new hand is ready to be played,
+// whether or not cards had to be drawn to get there.
+void automated_event_apply_new_hand_boss_effects()
+{
+    automated_event_set_crimson_disabled_joker();
+    automated_event_set_cerulean_forced_card();
 }
 
 struct DrawObject *aux_automated_event_get_card_draw(int card_index, int card_location)
@@ -1713,6 +1724,8 @@ bool automated_event_score()
             }
             else
             {
+                // Hand already full (e.g. DNA copied the played card): no draw happens
+                automated_event_apply_new_hand_boss_effects();
                 AUTO_EVENT_GO_TO_END()
             }
         }
@@ -1922,6 +1935,8 @@ bool automated_event_discard()
             else
             {
                 event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, 0, 0, 0, DISCARD_TIMESPAN);
+                // Nothing left to draw: still apply the per-hand boss effects
+                automated_event_apply_new_hand_boss_effects();
                 AUTO_EVENT_GO_TO_END()
             }
         }
@@ -2035,8 +2050,7 @@ bool automated_event_draw_cards()
         {
             AUTO_EVENT_GO_TO_STAGE(DRAW_CARD)
         }
-        automated_event_set_crimson_disabled_joker();
-        automated_event_set_cerulean_forced_card();
+        automated_event_apply_new_hand_boss_effects();
     }
 
     AUTO_EVENT_END()
