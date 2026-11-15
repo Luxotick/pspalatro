@@ -1427,6 +1427,61 @@ static void game_draw_text_fit_center_min(int font, const char *text, float x, f
     graphics_draw_text_center(font, text, x, y, scale, color);
 }
 
+// Word-wraps `text` at full size inside `max_width` instead of shrinking it
+// (shrunk small-font text drops pixel columns and becomes unreadable).
+// Returns the number of lines drawn.
+static int game_draw_text_wrapped(int font, const char *text, float x, float y, float max_width, float line_height, int max_lines, bool center, uint32_t color)
+{
+    int max_chars = (int)(max_width / game_draw_get_font_char_width(font));
+    if (max_chars < 1) max_chars = 1;
+    int lines = 0;
+    const char *p = text;
+    char line[64];
+    while (*p != '\0' && lines < max_lines)
+    {
+        while (*p == ' ') p++;
+        int len = strlen(p);
+        int take = len;
+        if (len > max_chars)
+        {
+            take = max_chars;
+            while (take > 0 && p[take] != ' ') take--;
+            if (take == 0) take = max_chars;
+        }
+        if (take > (int)sizeof(line) - 1) take = sizeof(line) - 1;
+        memcpy(line, p, take);
+        line[take] = '\0';
+        if (center) graphics_draw_text_center(font, line, x, y + lines * line_height, 1.0f, color);
+        else graphics_draw_text(font, line, x, y + lines * line_height, 1.0f, color);
+        p += take;
+        lines++;
+    }
+    return lines;
+}
+
+// Reminds the player of the current boss blind while the Run Info button is focused
+static void game_draw_boss_blind_reminder()
+{
+    if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_RUN_INFO ||
+        !game_util_is_boss_blind_in_effect() ||
+        g_game_state.boss_blind_type < 0 || g_game_state.boss_blind_type >= BOSS_BLIND_COUNT)
+    {
+        return;
+    }
+
+    struct BossBlindType *boss = &g_boss_blind_types[g_game_state.boss_blind_type];
+    const float width = 140.0f;
+    const float height = 52.0f;
+    float left = DRAW_LEFT_INFO_WIDTH + 6.0f;
+    float top = SCREEN_HEIGHT - height - 4.0f;
+
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(left, top, width, height, COLOR_DARK_GREY);
+    graphics_draw_text_center(font_small, boss->name, left + width / 2.0f, top + 8.0f, 1.0f, COLOR_WHITE);
+    graphics_draw_solid_quad(left + 2.0f, top + 15.0f, width - 4.0f, height - 17.0f, COLOR_WHITE);
+    game_draw_text_wrapped(font_small, boss->effect, left + width / 2.0f, top + 22.0f, width - 8.0f, 9.0f, 3, true, COLOR_BLACK);
+}
+
 bool game_draw_should_burn_score()
 {
     if (g_debug_info.force_score_flames && g_game_state.stage == GAME_STAGE_INGAME)
@@ -2043,6 +2098,8 @@ void game_draw_ingame()
     }
 
     game_draw_score_number();
+
+    game_draw_boss_blind_reminder();
 }
 
 int game_draw_get_blind_reward(int blind)
@@ -2161,20 +2218,14 @@ void game_draw_blind_select()
         game_draw_text_fit(font_small, str, x + 2, y, 84.0f, 1.0f, COLOR_YELLOW);
 
         y += 16;
-        const char *effect_line_1 = "";
-        const char *effect_line_2 = "";
-        if (i == GAME_BLIND_BOSS &&
-            g_game_state.boss_blind_type >= 0 &&
-            g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
-        {
-            effect_line_1 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_1;
-            effect_line_2 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_2;
-        }
         if (i == GAME_BLIND_BOSS)
         {
-            game_draw_text_fit(font_small, effect_line_1, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
-            y += 10;
-            game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
+            const char *effect = "";
+            if (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+            {
+                effect = g_boss_blind_types[g_game_state.boss_blind_type].effect;
+            }
+            game_draw_text_wrapped(font_small, effect, x + 2, y, 86.0f, 10.0f, 4, false, COLOR_WHITE);
         }
         else
         {
