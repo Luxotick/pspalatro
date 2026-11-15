@@ -2646,6 +2646,8 @@ void game_go_to_stage(int stage, int sub_stage)
                 }
                 case GAME_SUBSTAGE_INGAME_LOST_END:
                 {
+                    // The run is over, drop the autosave from the start of this blind
+                    save_delete_autosave();
                     g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_GAME_OVER_PANEL;
                     break;
                 }

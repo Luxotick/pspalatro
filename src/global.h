@@ -1108,6 +1108,7 @@ void run_save_utility();
 bool run_load_utility();
 bool save_autosave_exists();
 bool save_write_autosave();
+void save_delete_autosave();
 bool save_load_autosave();
 void profile_load();
 bool profile_save();
