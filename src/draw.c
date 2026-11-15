@@ -1854,6 +1854,21 @@ void game_draw_shop()
             graphics_draw_text_center(font_big, g_game_state.shop.opened_booster.size == BOOSTER_PACK_SIZE_MEGA ? "Choose 2" : "Choose 1",
                 DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f), DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT + 15.0f, 1.0f, COLOR_WHITE);
 
+            // Triangle skips the pack: show it like the Play Hand / Discard prompts
+            {
+                float skip_x = DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f) + 56.0f;
+                float skip_y = DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT + 2.0f;
+                graphics_set_no_texture();
+                graphics_draw_solid_quad(skip_x, skip_y, 62.0f, 26.0f, COLOR_DARK_GREY_2);
+                graphics_draw_text_center(font_small, "Skip", skip_x + 22.0f, skip_y + 12.0f, 1.0f, COLOR_WHITE);
+                graphics_set_texture(tex_gamepad_ui, GRAPHICS_TEXTURE_FILTER_LINEAR);
+                graphics_draw_quad(skip_x + 42.0f, skip_y + 5.0f, 16.0f, 16.0f,
+                    g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].x,
+                    g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].y,
+                    32, 32, COLOR_WHITE);
+                graphics_set_no_texture();
+            }
+
             game_draw_booster_items();
 
             break;
