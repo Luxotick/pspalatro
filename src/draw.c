@@ -724,8 +724,11 @@ uint32_t game_draw_lerp_colour(uint32_t colour_a, uint32_t colour_b, float t)
             TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
         if (card->draw.white_factor > 0.0f)
         {
+            // Flash with the plain white card, not the texture at (0, 0) which is the Red Deck back
             uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
-            graphics_draw_rotated_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
+            graphics_draw_rotated_quad(x, y, w, h,
+                g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y,
+                TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
         }
         return;
     }
