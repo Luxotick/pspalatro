@@ -231,6 +231,9 @@ void game_draw_loading_text(const char *text, uint32_t color, uint32_t back_colo
 
 void game_draw_card_hint(struct Card *card)
 {
+    // Face-down cards must not reveal what they are
+    if (card->face_down) return;
+
     int line_count = 1;
     if (card->extra_chips > 0) line_count++;
     if (card->enhancement != CARD_ENHANCEMENT_NONE && card->enhancement != CARD_ENHANCEMENT_STONE) line_count++;
@@ -346,8 +349,12 @@ void game_draw_tarot_hint(struct Tarot *tarot)
         }
     }
 
+    // Hermit / Temperance also show what they would pay out right now
+    int money_preview = game_util_get_tarot_money_preview(tarot->type);
+    int total_lines = line_count + (money_preview >= 0 ? 1 : 0);
+
     float top = tarot->draw.y + CARD_HEIGHT + 4.0f;
-    float height = CARD_HINT_MIN_HEIGHT + 8.0f * line_count;
+    float height = CARD_HINT_MIN_HEIGHT + 8.0f * total_lines;
     float left = tarot->draw.x - CARD_HINT_WIDTH / 2.0f + CARD_WIDTH / 2.0f;
     if (left > SCREEN_WIDTH - CARD_HINT_WIDTH)
     {
@@ -361,7 +368,7 @@ void game_draw_tarot_hint(struct Tarot *tarot)
 
     graphics_set_texture(-1, -1);
     graphics_draw_quad(left, top, CARD_HINT_WIDTH, height, 0, 0, 0, 0, COLOR_DARK_GREY);
-    graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * line_count + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
+    graphics_draw_quad(left + 2, top + CARD_HINT_MIN_HEIGHT - 12.0f, CARD_HINT_WIDTH - 4, 8.0f * total_lines + 8.0f, 0, 0, 0, 0, COLOR_WHITE);
 
     graphics_draw_text_center(font_small, g_tarot_types[tarot->type].name, left + CARD_HINT_WIDTH / 2.0f, top + 10.0f, 1.0f, COLOR_WHITE);
 
@@ -369,6 +376,13 @@ void game_draw_tarot_hint(struct Tarot *tarot)
     for (int i = 0; i < line_count; i++)
     {
         graphics_draw_text_formatted_center(font_small, g_tarot_types[tarot->type].hint_lines[i], (void*)tarot, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * i), 1.0f, COLOR_BLACK);
+    }
+
+    if (money_preview >= 0)
+    {
+        char str[32];
+        sprintf(str, "(Currently #5$%d#-)", money_preview);
+        graphics_draw_text_formatted_center(font_small, str, (void*)tarot, left + CARD_HINT_WIDTH / 2.0f, top + 14.0f + 12.0f + (8.0f * line_count), 1.0f, COLOR_BLACK);
     }
 }
 
@@ -485,6 +499,8 @@ void game_draw_booster_hint(struct BoosterPack *booster)
 }
 
 bool g_freeze_cards = false;
+// Set while a hand that the boss blind does not allow (The Eye / The Mouth) is shown
+bool g_hand_not_allowed = false;
 
 float sin_table[256] = {
  0.0000000f,  0.0245412f,  0.0490677f,  0.0735646f,  0.0980171f,  0.1224107f,  0.1467305f,  0.1709619f,
@@ -721,8 +737,11 @@ uint32_t game_draw_lerp_colour(uint32_t colour_a, uint32_t colour_b, float t)
             TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, COLOR_WHITE, card->draw.angle);
         if (card->draw.white_factor > 0.0f)
         {
+            // Flash with the plain white card, not the texture at (0, 0) which is the Red Deck back
             uint32_t color = 0xFFFFFF | ((uint32_t)(255.0f * (card->draw.white_factor > 1.0f ? 1.0f : card->draw.white_factor))<<24);
-            graphics_draw_rotated_quad(x, y, w, h, 0, 0, TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
+            graphics_draw_rotated_quad(x, y, w, h,
+                g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].x, g_enhancement_tex_coords[CARD_ENHANCEMENT_NONE].y,
+                TEXTURE_CARD_WIDTH, TEXTURE_CARD_HEIGHT, color, card->draw.angle);
         }
         return;
     }
@@ -1188,6 +1207,30 @@ void game_draw_top_jokers()
     }
 }
 
+void game_draw_hand_not_allowed()
+{
+    graphics_set_no_texture();
+    for (int i = 0; i < g_game_state.played_hand.card_count; i++)
+    {
+        struct Card *card = g_game_state.played_hand.cards[i];
+        float x, y;
+        game_draw_get_oscillating_position(&card->draw, &x, &y);
+        float scale = card->draw.scale;
+        x -= ((CARD_WIDTH * scale) - CARD_WIDTH) / 2.0f;
+        y -= ((CARD_HEIGHT * scale) - CARD_HEIGHT) / 2.0f;
+        float w = CARD_WIDTH * scale;
+        float h = CARD_HEIGHT * scale;
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * scale, 27.0f * scale, 40.0f * scale, 9.0f * scale, 0xCC0000FF, card->draw.angle + 0.78f);
+        game_draw_card_effect_quad(x, y, w, h, 4.0f * scale, 29.0f * scale, 40.0f * scale, 9.0f * scale, 0xCC0000FF, card->draw.angle - 0.78f);
+    }
+
+    float center_x = DRAW_HAND_X + DRAW_HAND_WIDTH / 2.0f;
+    float y = DRAW_SCORING_CARDS_Y - 30.0f;
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(center_x - 64.0f, y - 2.0f, 128.0f, 22.0f, COLOR_DARK_GREY);
+    graphics_draw_text_center(font_big, "Not Allowed!", center_x, y + 9.0f, 1.0f, COLOR_TEXT_RED);
+}
+
 void game_draw_ingame_hand()
 {
     graphics_set_no_texture();
@@ -1198,7 +1241,9 @@ void game_draw_ingame_hand()
         game_draw_card(g_game_state.hand.cards[i], NULL);
     }
 
-    if (g_game_state.show_highlighted_card && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_HAND)
+    // No tooltip while the hand is lowered for scoring: it covered the played cards
+    if (g_game_state.show_highlighted_card && g_game_state.input_focused_zone == INPUT_FOCUSED_ZONE_HAND &&
+        game_get_hand_y() == DRAW_HAND_Y)
     {
         if (g_game_state.highlighted_item > -1 && g_game_state.highlighted_item < g_game_state.hand.card_count)
         {
@@ -1209,6 +1254,11 @@ void game_draw_ingame_hand()
     for (int i = 0; i < g_game_state.played_hand.card_count; i++)
     {
         game_draw_card(g_game_state.played_hand.cards[i], NULL);
+    }
+
+    if (g_hand_not_allowed)
+    {
+        game_draw_hand_not_allowed();
     }
 
     // Draw card count
@@ -1375,6 +1425,61 @@ static void game_draw_text_fit_center_min(int font, const char *text, float x, f
         scale = MAX(min_scale, max_width / (strlen(text) * game_draw_get_font_char_width(font)));
     }
     graphics_draw_text_center(font, text, x, y, scale, color);
+}
+
+// Word-wraps `text` at full size inside `max_width` instead of shrinking it
+// (shrunk small-font text drops pixel columns and becomes unreadable).
+// Returns the number of lines drawn.
+static int game_draw_text_wrapped(int font, const char *text, float x, float y, float max_width, float line_height, int max_lines, bool center, uint32_t color)
+{
+    int max_chars = (int)(max_width / game_draw_get_font_char_width(font));
+    if (max_chars < 1) max_chars = 1;
+    int lines = 0;
+    const char *p = text;
+    char line[64];
+    while (*p != '\0' && lines < max_lines)
+    {
+        while (*p == ' ') p++;
+        int len = strlen(p);
+        int take = len;
+        if (len > max_chars)
+        {
+            take = max_chars;
+            while (take > 0 && p[take] != ' ') take--;
+            if (take == 0) take = max_chars;
+        }
+        if (take > (int)sizeof(line) - 1) take = sizeof(line) - 1;
+        memcpy(line, p, take);
+        line[take] = '\0';
+        if (center) graphics_draw_text_center(font, line, x, y + lines * line_height, 1.0f, color);
+        else graphics_draw_text(font, line, x, y + lines * line_height, 1.0f, color);
+        p += take;
+        lines++;
+    }
+    return lines;
+}
+
+// Reminds the player of the current boss blind while the Run Info button is focused
+static void game_draw_boss_blind_reminder()
+{
+    if (g_game_state.input_focused_zone != INPUT_FOCUSED_ZONE_RUN_INFO ||
+        !game_util_is_boss_blind_in_effect() ||
+        g_game_state.boss_blind_type < 0 || g_game_state.boss_blind_type >= BOSS_BLIND_COUNT)
+    {
+        return;
+    }
+
+    struct BossBlindType *boss = &g_boss_blind_types[g_game_state.boss_blind_type];
+    const float width = 140.0f;
+    const float height = 52.0f;
+    float left = DRAW_LEFT_INFO_WIDTH + 6.0f;
+    float top = SCREEN_HEIGHT - height - 4.0f;
+
+    graphics_set_no_texture();
+    graphics_draw_solid_quad(left, top, width, height, COLOR_DARK_GREY);
+    graphics_draw_text_center(font_small, boss->name, left + width / 2.0f, top + 8.0f, 1.0f, COLOR_WHITE);
+    graphics_draw_solid_quad(left + 2.0f, top + 15.0f, width - 4.0f, height - 17.0f, COLOR_WHITE);
+    game_draw_text_wrapped(font_small, boss->effect, left + width / 2.0f, top + 22.0f, width - 8.0f, 9.0f, 3, true, COLOR_BLACK);
 }
 
 bool game_draw_should_burn_score()
@@ -1804,6 +1909,21 @@ void game_draw_shop()
             graphics_draw_text_center(font_big, g_game_state.shop.opened_booster.size == BOOSTER_PACK_SIZE_MEGA ? "Choose 2" : "Choose 1",
                 DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f), DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT + 15.0f, 1.0f, COLOR_WHITE);
 
+            // Triangle skips the pack: show it like the Play Hand / Discard prompts
+            {
+                float skip_x = DRAW_BOOSTER_ITEMS_X + (DRAW_BOOSTER_ITEMS_WIDTH / 2.0f) + 56.0f;
+                float skip_y = DRAW_BOOSTER_ITEMS_Y + CARD_HEIGHT + 2.0f;
+                graphics_set_no_texture();
+                graphics_draw_solid_quad(skip_x, skip_y, 62.0f, 26.0f, COLOR_DARK_GREY_2);
+                graphics_draw_text_center(font_small, "Skip", skip_x + 22.0f, skip_y + 12.0f, 1.0f, COLOR_WHITE);
+                graphics_set_texture(tex_gamepad_ui, GRAPHICS_TEXTURE_FILTER_LINEAR);
+                graphics_draw_quad(skip_x + 42.0f, skip_y + 5.0f, 16.0f, 16.0f,
+                    g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].x,
+                    g_gamepad_ui_text_coords[GAMEPAD_UI_TRIANGLE].y,
+                    32, 32, COLOR_WHITE);
+                graphics_set_no_texture();
+            }
+
             game_draw_booster_items();
 
             break;
@@ -1978,6 +2098,8 @@ void game_draw_ingame()
     }
 
     game_draw_score_number();
+
+    game_draw_boss_blind_reminder();
 }
 
 int game_draw_get_blind_reward(int blind)
@@ -2096,20 +2218,14 @@ void game_draw_blind_select()
         game_draw_text_fit(font_small, str, x + 2, y, 84.0f, 1.0f, COLOR_YELLOW);
 
         y += 16;
-        const char *effect_line_1 = "";
-        const char *effect_line_2 = "";
-        if (i == GAME_BLIND_BOSS &&
-            g_game_state.boss_blind_type >= 0 &&
-            g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
-        {
-            effect_line_1 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_1;
-            effect_line_2 = g_boss_blind_types[g_game_state.boss_blind_type].effect_line_2;
-        }
         if (i == GAME_BLIND_BOSS)
         {
-            game_draw_text_fit(font_small, effect_line_1, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
-            y += 10;
-            game_draw_text_fit(font_small, effect_line_2, x + 2, y, 84.0f, 1.0f, COLOR_WHITE);
+            const char *effect = "";
+            if (g_game_state.boss_blind_type >= 0 && g_game_state.boss_blind_type < BOSS_BLIND_COUNT)
+            {
+                effect = g_boss_blind_types[g_game_state.boss_blind_type].effect;
+            }
+            game_draw_text_wrapped(font_small, effect, x + 2, y, 86.0f, 10.0f, 4, false, COLOR_WHITE);
         }
         else
         {

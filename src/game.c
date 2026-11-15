@@ -1751,6 +1751,7 @@ void game_sort_hand()
 
 void game_start_ingame()
 {
+    g_hand_not_allowed = false;
     g_game_state.stage = GAME_STAGE_INGAME;
     g_game_state.sub_stage = GAME_SUBSTAGE_INGAME_PICK_HAND;
     g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_HAND;
@@ -2443,6 +2444,15 @@ void game_start_shop(bool init)
 
     if (init)
     {
+        // Undo per-round boss blind effects (Amber Acorn, Crimson Heart, Cerulean Bell)
+        for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+        {
+            g_game_state.jokers.jokers[i].face_down = false;
+            g_game_state.jokers.jokers[i].disabled = false;
+        }
+        g_game_state.boss_forced_selected_card_index = -1;
+        g_game_state.boss_forced_selected_card = NULL;
+
         g_game_state.shop.rerolls = 0;
 
         game_shop_set_singles();
@@ -2636,6 +2646,8 @@ void game_go_to_stage(int stage, int sub_stage)
                 }
                 case GAME_SUBSTAGE_INGAME_LOST_END:
                 {
+                    // The run is over, drop the autosave from the start of this blind
+                    save_delete_autosave();
                     g_game_state.input_focused_zone = INPUT_FOCUSED_ZONE_GAME_OVER_PANEL;
                     break;
                 }

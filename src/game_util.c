@@ -472,10 +472,42 @@ const char *game_util_get_blind_effect(int blind)
     return "";
 }
 
+// The boss blind only applies while it is being selected or played.
+// g_game_state.blind stays on the boss during cash out and the shop, so its
+// effects must not leak into booster packs opened there.
+bool game_util_is_boss_blind_in_effect()
+{
+    if (g_game_state.blind != GAME_BLIND_BOSS) return false;
+
+    int stage = g_game_state.stage == GAME_STAGE_PAUSE_MENU ? g_game_state.previous_stage : g_game_state.stage;
+    return stage == GAME_STAGE_INGAME || stage == GAME_STAGE_BLINDS;
+}
+
 bool game_util_is_boss_blind_active(int boss_blind_type)
 {
-    return g_game_state.blind == GAME_BLIND_BOSS &&
+    return game_util_is_boss_blind_in_effect() &&
         g_game_state.boss_blind_type == boss_blind_type;
+}
+
+// Money a Hermit / Temperance would give right now, -1 for other tarots
+int game_util_get_tarot_money_preview(int tarot_type)
+{
+    switch (tarot_type)
+    {
+        case TAROT_TYPE_HERMIT:
+            return g_game_state.wealth > 0 ? MIN(g_game_state.wealth, 20) : 0;
+        case TAROT_TYPE_TEMPERANCE:
+        {
+            int joker_value = 0;
+            for (int i = 0; i < g_game_state.jokers.joker_count; i++)
+            {
+                joker_value += game_util_get_joker_sell_price(&(g_game_state.jokers.jokers[i]));
+            }
+            return MIN(joker_value, 50);
+        }
+        default:
+            return -1;
+    }
 }
 
 bool game_util_is_joker_slot_available()
@@ -912,7 +944,7 @@ bool game_util_is_card_face(struct Card *card)
 
 bool game_util_is_card_debuffed(struct Card *card)
 {
-    if (card == NULL || g_game_state.blind != GAME_BLIND_BOSS) return false;
+    if (card == NULL || !game_util_is_boss_blind_in_effect()) return false;
 
     switch (g_game_state.boss_blind_type)
     {

@@ -490,8 +490,29 @@ bool save_autosave_exists()
     return true;
 }
 
+void save_delete_autosave()
+{
+    remove(autosave_path);
+    autosave_exists_cache = 0;
+    save_debug_log("autosave deleted");
+}
+
+static bool save_is_run_lost()
+{
+    int stage = g_game_state.stage == GAME_STAGE_PAUSE_MENU ? g_game_state.previous_stage : g_game_state.stage;
+    int sub_stage = g_game_state.stage == GAME_STAGE_PAUSE_MENU ? g_game_state.previous_sub_stage : g_game_state.sub_stage;
+    return stage == GAME_STAGE_INGAME && sub_stage == GAME_SUBSTAGE_INGAME_LOST_END;
+}
+
 bool save_write_autosave()
 {
+    // A lost run is over: never save it, so Continue can't replay the lost blind
+    if (save_is_run_lost())
+    {
+        save_delete_autosave();
+        return false;
+    }
+
     size_t data_size = 0;
     size_t buffer_size = save_aligned_payload_size();
     void *buffer = memalign(64, buffer_size);

@@ -239,6 +239,9 @@ void automated_event_set_cerulean_forced_card()
     g_game_state.current_poker_hand = game_get_selected_poker_hand(cards, 1, scoring_cards, &scoring_cards_count);
     g_game_state.current_base_chips = g_game_state.poker_hand_base_chips[g_game_state.current_poker_hand];
     g_game_state.current_base_mult = g_game_state.poker_hand_base_mult[g_game_state.current_poker_hand];
+
+    // Raise the forced card right away instead of on the next manual selection
+    event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, -1, 0, 0, 10);
 }
 
 void automated_event_set_crimson_disabled_joker()
@@ -259,6 +262,14 @@ void automated_event_set_crimson_disabled_joker()
         g_game_state.jokers.jokers[index].disabled = true;
         event_add_pop_joker(index, VARIABLE_TIME(30));
     }
+}
+
+// Boss effects applied every time a new hand is ready to be played,
+// whether or not cards had to be drawn to get there.
+void automated_event_apply_new_hand_boss_effects()
+{
+    automated_event_set_crimson_disabled_joker();
+    automated_event_set_cerulean_forced_card();
 }
 
 struct DrawObject *aux_automated_event_get_card_draw(int card_index, int card_location)
@@ -496,6 +507,26 @@ bool automated_event_score()
     }
 
     AUTO_EVENT_STAGE_WAIT(MOVE_TIMESPAN)
+
+    // A hand the boss blind does not allow (The Eye / The Mouth) is not scored:
+    // cross the cards out, show "Not Allowed!" and skip straight to discarding it
+    AUTO_EVENT_STAGE()
+    {
+        if (!AUTO_EVENT_VAL(SCORE_PARAM_HAND_BLOCKED_BY_BOSS))
+        {
+            AUTO_EVENT_GO_TO_STAGE(SCORE_PRE_SCORE_JOKER)
+        }
+        g_hand_not_allowed = true;
+        audio_play_sfx(AUDIO_SFX_CANCEL);
+    }
+
+    AUTO_EVENT_STAGE_WAIT(VARIABLE_TIME(60))
+
+    AUTO_EVENT_STAGE()
+    {
+        g_hand_not_allowed = false;
+        AUTO_EVENT_GO_TO_STAGE(DISCARD_DEALT_HAND)
+    }
 
     // *************
     //   Pre-Score
@@ -1713,6 +1744,8 @@ bool automated_event_score()
             }
             else
             {
+                // Hand already full (e.g. DNA copied the played card): no draw happens
+                automated_event_apply_new_hand_boss_effects();
                 AUTO_EVENT_GO_TO_END()
             }
         }
@@ -1922,6 +1955,8 @@ bool automated_event_discard()
             else
             {
                 event_add(EVENT_ARRANGE_CARDS, 0, EVENT_CARD_LOCATION_HAND, 0, 0, 0, DISCARD_TIMESPAN);
+                // Nothing left to draw: still apply the per-hand boss effects
+                automated_event_apply_new_hand_boss_effects();
                 AUTO_EVENT_GO_TO_END()
             }
         }
@@ -2035,8 +2070,7 @@ bool automated_event_draw_cards()
         {
             AUTO_EVENT_GO_TO_STAGE(DRAW_CARD)
         }
-        automated_event_set_crimson_disabled_joker();
-        automated_event_set_cerulean_forced_card();
+        automated_event_apply_new_hand_boss_effects();
     }
 
     AUTO_EVENT_END()
@@ -3130,10 +3164,7 @@ bool automated_event_use_tarot()
             }
             case TAROT_TYPE_HERMIT:
             {
-                if (g_game_state.wealth > 0)
-                {
-                    g_game_state.wealth += g_game_state.wealth > 20 ? 20 : g_game_state.wealth;
-                }
+                g_game_state.wealth += game_util_get_tarot_money_preview(TAROT_TYPE_HERMIT);
 
                 g_game_state.last_used_consumable_item_type = ITEM_TYPE_TAROT;
                 g_game_state.last_used_consumable_tarot_planet_type = TAROT_TYPE_HERMIT;
@@ -3258,12 +3289,7 @@ bool automated_event_use_tarot()
             }
             case TAROT_TYPE_TEMPERANCE:
             {
-                int joker_value = 0;
-                for (int i = 0; i < g_game_state.jokers.joker_count; i++)
-                {
-                    joker_value += game_util_get_joker_sell_price(&(g_game_state.jokers.jokers[i]));
-                }
-                g_game_state.wealth += MIN(joker_value, 50);
+                g_game_state.wealth += game_util_get_tarot_money_preview(TAROT_TYPE_TEMPERANCE);
 
                 g_game_state.last_used_consumable_item_type = ITEM_TYPE_TAROT;
                 g_game_state.last_used_consumable_tarot_planet_type = TAROT_TYPE_TEMPERANCE;
